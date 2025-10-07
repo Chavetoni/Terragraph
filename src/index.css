@@ -1,0 +1,256 @@
+/* Import Tailwind CSS - Temporarily disabled due to build conflicts */
+/* @tailwind base; */
+/* @tailwind components; */
+/* @tailwind utilities; */
+
+/* Import custom styling systems */
+@import './styles/design-system.css';  /* New comprehensive design system */
+@import './styles/validation.css';
+@import './styles/materials.css';
+@import './styles/animations.css';
+@import './styles/responsive.css';
+@import './styles/icons.css';
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Glassmorphism styles for 3D labels */
+.glass-label {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 16px 0 rgba(31, 38, 135, 0.37);
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 16px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.glass-label:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+}
+
+.glass-label-dark {
+  background: rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.glass-label-dark:hover {
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+}
+
+.glass-depth-label {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 3px 12px 0 rgba(31, 38, 135, 0.2);
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.glass-borehole-label {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 24px 0 rgba(31, 38, 135, 0.4);
+  color: #fff;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.glass-borehole-pin {
+  background: rgba(33, 150, 243, 0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 4px;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  box-shadow: 0 2px 8px 0 rgba(33, 150, 243, 0.3);
+  color: #fff;
+  padding: 2px 4px;
+  font-size: 8px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Export Section Styles */
+.export-info {
+  margin-bottom: 16px;
+}
+
+.export-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.stat-label {
+  color: #888;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #333;
+}
+
+.export-format-info {
+  margin-bottom: 16px;
+}
+
+.format-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.format-item {
+  font-size: 14px;
+  color: #666;
+}
+
+.export-controls {
+  margin-bottom: 16px;
+}
+
+.export-button {
+  transition: all 0.3s ease;
+}
+
+.export-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.export-progress {
+  margin-top: 8px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background-color: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.export-help {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.export-help h4 {
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.help-content {
+  color: #666;
+  line-height: 1.4;
+}
+
+.help-content ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.help-content li {
+  margin-bottom: 4px;
+}
+
+/* Export Type Selection */
+.export-type-selection {
+  margin-bottom: 16px;
+}
+
+.export-type-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.export-type-button {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #ddd;
+  background: white;
+  color: #666;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.export-type-button:hover:not(:disabled) {
+  border-color: #007bff;
+  color: #007bff;
+  background: #f8f9fa;
+}
+
+.export-type-button.active {
+  border-color: #007bff;
+  background: #007bff;
+  color: white;
+}
+
+.export-type-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

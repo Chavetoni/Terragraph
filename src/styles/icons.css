@@ -1,0 +1,384 @@
+/* Standardized Icon Sizing System */
+
+/* Base icon sizes */
+.icon-xs {
+  @apply w-3 h-3;
+}
+
+.icon-sm {
+  @apply w-4 h-4;
+}
+
+.icon-md {
+  @apply w-5 h-5;
+}
+
+.icon-lg {
+  @apply w-6 h-6;
+}
+
+.icon-xl {
+  @apply w-8 h-8;
+}
+
+/* Context-specific icon sizes */
+.icon-button {
+  @apply w-4 h-4;
+}
+
+.icon-nav {
+  @apply w-5 h-5;
+}
+
+.icon-modal {
+  @apply w-4 h-4;
+}
+
+.icon-form {
+  @apply w-4 h-4;
+}
+
+.icon-status {
+  @apply w-3 h-3;
+}
+
+.icon-validation {
+  @apply w-3 h-3;
+}
+
+.icon-drag {
+  @apply w-4 h-4;
+}
+
+.icon-action {
+  @apply w-4 h-4;
+}
+
+.icon-section {
+  @apply w-4 h-4;
+}
+
+.icon-export {
+  @apply w-5 h-5;
+}
+
+.icon-loading {
+  @apply w-6 h-6;
+}
+
+/* Icon containers */
+.icon-container {
+  @apply flex items-center justify-center;
+}
+
+.icon-container-xs {
+  @apply w-6 h-6 flex items-center justify-center;
+}
+
+.icon-container-sm {
+  @apply w-8 h-8 flex items-center justify-center;
+}
+
+.icon-container-md {
+  @apply w-10 h-10 flex items-center justify-center;
+}
+
+.icon-container-lg {
+  @apply w-12 h-12 flex items-center justify-center;
+}
+
+/* Icon spacing */
+.icon-spacing-xs {
+  @apply mr-1;
+}
+
+.icon-spacing-sm {
+  @apply mr-2;
+}
+
+.icon-spacing-md {
+  @apply mr-3;
+}
+
+.icon-spacing-lg {
+  @apply mr-4;
+}
+
+/* Icon colors */
+.icon-primary {
+  @apply text-blue-600;
+}
+
+.icon-secondary {
+  @apply text-gray-600;
+}
+
+.icon-success {
+  @apply text-green-600;
+}
+
+.icon-warning {
+  @apply text-yellow-600;
+}
+
+.icon-error {
+  @apply text-red-600;
+}
+
+.icon-muted {
+  @apply text-gray-400;
+}
+
+/* Icon states */
+.icon-disabled {
+  @apply text-gray-300 cursor-not-allowed;
+}
+
+.icon-active {
+  @apply text-blue-600;
+}
+
+.icon-inactive {
+  @apply text-gray-500;
+}
+
+/* Icon hover effects */
+.icon-hover {
+  @apply transition-colors duration-150;
+}
+
+.icon-hover:hover {
+  @apply text-blue-600;
+}
+
+.icon-hover-danger:hover {
+  @apply text-red-600;
+}
+
+.icon-hover-success:hover {
+  @apply text-green-600;
+}
+
+.icon-hover-warning:hover {
+  @apply text-yellow-600;
+}
+
+/* Icon in buttons */
+.btn-icon {
+  @apply inline-flex items-center gap-2;
+}
+
+.btn-icon .icon {
+  @apply w-4 h-4;
+}
+
+.btn-icon-sm .icon {
+  @apply w-3 h-3;
+}
+
+.btn-icon-lg .icon {
+  @apply w-5 h-5;
+}
+
+/* Icon-only buttons */
+.btn-icon-only {
+  @apply inline-flex items-center justify-center p-2 rounded-md;
+}
+
+.btn-icon-only .icon {
+  @apply w-5 h-5;
+}
+
+.btn-icon-only-sm {
+  @apply p-1;
+}
+
+.btn-icon-only-sm .icon {
+  @apply w-4 h-4;
+}
+
+.btn-icon-only-lg {
+  @apply p-3;
+}
+
+.btn-icon-only-lg .icon {
+  @apply w-6 h-6;
+}
+
+/* Responsive icon sizing */
+@media (max-width: 768px) {
+  .icon-responsive {
+    @apply w-5 h-5;
+  }
+  
+  .icon-responsive-sm {
+    @apply w-4 h-4;
+  }
+  
+  .icon-responsive-lg {
+    @apply w-6 h-6;
+  }
+}
+
+@media (min-width: 769px) {
+  .icon-responsive {
+    @apply w-6 h-6;
+  }
+  
+  .icon-responsive-sm {
+    @apply w-5 h-5;
+  }
+  
+  .icon-responsive-lg {
+    @apply w-8 h-8;
+  }
+}
+
+/* Icon animations */
+.icon-spin {
+  @apply animate-spin;
+}
+
+.icon-bounce {
+  @apply animate-bounce;
+}
+
+.icon-pulse {
+  @apply animate-pulse;
+}
+
+/* Icon accessibility */
+.icon-sr-only {
+  @apply sr-only;
+}
+
+.icon-aria-hidden {
+  @apply pointer-events-none;
+}
+
+/* Icon in forms */
+.form-icon {
+  @apply absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none;
+}
+
+.form-icon .icon {
+  @apply w-4 h-4 text-gray-400;
+}
+
+.form-icon-right {
+  @apply absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none;
+}
+
+.form-icon-right .icon {
+  @apply w-4 h-4 text-gray-400;
+}
+
+/* Icon in tables */
+.table-icon {
+  @apply w-4 h-4 text-gray-500;
+}
+
+.table-icon-action {
+  @apply w-4 h-4 text-gray-400 hover:text-gray-600 cursor-pointer;
+}
+
+/* Icon in cards */
+.card-icon {
+  @apply w-8 h-8 text-blue-600;
+}
+
+.card-icon-sm {
+  @apply w-6 h-6 text-blue-600;
+}
+
+.card-icon-lg {
+  @apply w-10 h-10 text-blue-600;
+}
+
+/* Icon in navigation */
+.nav-icon {
+  @apply w-5 h-5 text-gray-500;
+}
+
+.nav-icon-active {
+  @apply w-5 h-5 text-blue-600;
+}
+
+/* Icon in alerts */
+.alert-icon {
+  @apply w-5 h-5 flex-shrink-0;
+}
+
+.alert-icon-sm {
+  @apply w-4 h-4 flex-shrink-0;
+}
+
+/* Icon in badges */
+.badge-icon {
+  @apply w-3 h-3 mr-1;
+}
+
+/* Icon in tooltips */
+.tooltip-icon {
+  @apply w-4 h-4 text-gray-400;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .icon-primary {
+    @apply text-blue-800;
+  }
+  
+  .icon-secondary {
+    @apply text-gray-800;
+  }
+  
+  .icon-success {
+    @apply text-green-800;
+  }
+  
+  .icon-warning {
+    @apply text-yellow-800;
+  }
+  
+  .icon-error {
+    @apply text-red-800;
+  }
+  
+  .icon-muted {
+    @apply text-gray-600;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .icon-spin {
+    @apply animate-none;
+  }
+  
+  .icon-bounce {
+    @apply animate-none;
+  }
+  
+  .icon-pulse {
+    @apply animate-none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .icon-primary,
+  .icon-secondary,
+  .icon-success,
+  .icon-warning,
+  .icon-error,
+  .icon-muted {
+    @apply text-black;
+  }
+  
+  .icon-spin,
+  .icon-bounce,
+  .icon-pulse {
+    @apply animate-none;
+  }
+}

@@ -1,0 +1,423 @@
+/* Material Color System for Geological Materials */
+
+/* Base material classes */
+.material-clay {
+  @apply bg-amber-800 text-white;
+  background-color: #8B4513;
+}
+
+.material-sand {
+  @apply bg-yellow-400 text-gray-800;
+  background-color: #F4A460;
+}
+
+.material-gravel {
+  @apply bg-stone-600 text-white;
+  background-color: #A0522D;
+}
+
+.material-rock {
+  @apply bg-slate-500 text-white;
+  background-color: #708090;
+}
+
+.material-silt {
+  @apply bg-amber-300 text-gray-800;
+  background-color: #DEB887;
+}
+
+.material-organic {
+  @apply bg-amber-900 text-white;
+  background-color: #654321;
+}
+
+.material-fill {
+  @apply bg-orange-600 text-white;
+  background-color: #D2691E;
+}
+
+.material-bedrock {
+  @apply bg-gray-700 text-white;
+  background-color: #4A5568;
+}
+
+.material-limestone {
+  @apply bg-gray-300 text-gray-800;
+  background-color: #E5E7EB;
+}
+
+.material-sandstone {
+  @apply bg-yellow-300 text-gray-800;
+  background-color: #FCD34D;
+}
+
+.material-shale {
+  @apply bg-slate-400 text-white;
+  background-color: #94A3B8;
+}
+
+.material-granite {
+  @apply bg-gray-600 text-white;
+  background-color: #6B7280;
+}
+
+.material-water {
+  @apply bg-blue-400 text-white;
+  background-color: #60A5FA;
+}
+
+.material-air {
+  @apply bg-gray-100 text-gray-800;
+  background-color: #F3F4F6;
+}
+
+.material-concrete {
+  @apply bg-gray-500 text-white;
+  background-color: #9CA3AF;
+}
+
+/* Border variants */
+.material-clay-border {
+  @apply border-amber-800;
+  border-color: #8B4513;
+}
+
+.material-sand-border {
+  @apply border-yellow-400;
+  border-color: #F4A460;
+}
+
+.material-gravel-border {
+  @apply border-stone-600;
+  border-color: #A0522D;
+}
+
+.material-rock-border {
+  @apply border-slate-500;
+  border-color: #708090;
+}
+
+.material-silt-border {
+  @apply border-amber-300;
+  border-color: #DEB887;
+}
+
+.material-organic-border {
+  @apply border-amber-900;
+  border-color: #654321;
+}
+
+.material-fill-border {
+  @apply border-orange-600;
+  border-color: #D2691E;
+}
+
+.material-bedrock-border {
+  @apply border-gray-700;
+  border-color: #4A5568;
+}
+
+.material-limestone-border {
+  @apply border-gray-300;
+  border-color: #E5E7EB;
+}
+
+.material-sandstone-border {
+  @apply border-yellow-300;
+  border-color: #FCD34D;
+}
+
+.material-shale-border {
+  @apply border-slate-400;
+  border-color: #94A3B8;
+}
+
+.material-granite-border {
+  @apply border-gray-600;
+  border-color: #6B7280;
+}
+
+.material-water-border {
+  @apply border-blue-400;
+  border-color: #60A5FA;
+}
+
+.material-air-border {
+  @apply border-gray-100;
+  border-color: #F3F4F6;
+}
+
+.material-concrete-border {
+  @apply border-gray-500;
+  border-color: #9CA3AF;
+}
+
+/* Text color variants */
+.material-clay-text {
+  @apply text-amber-800;
+  color: #8B4513;
+}
+
+.material-sand-text {
+  @apply text-yellow-600;
+  color: #F4A460;
+}
+
+.material-gravel-text {
+  @apply text-stone-600;
+  color: #A0522D;
+}
+
+.material-rock-text {
+  @apply text-slate-500;
+  color: #708090;
+}
+
+.material-silt-text {
+  @apply text-amber-600;
+  color: #DEB887;
+}
+
+.material-organic-text {
+  @apply text-amber-900;
+  color: #654321;
+}
+
+.material-fill-text {
+  @apply text-orange-600;
+  color: #D2691E;
+}
+
+.material-bedrock-text {
+  @apply text-gray-700;
+  color: #4A5568;
+}
+
+.material-limestone-text {
+  @apply text-gray-500;
+  color: #E5E7EB;
+}
+
+.material-sandstone-text {
+  @apply text-yellow-600;
+  color: #FCD34D;
+}
+
+.material-shale-text {
+  @apply text-slate-400;
+  color: #94A3B8;
+}
+
+.material-granite-text {
+  @apply text-gray-600;
+  color: #6B7280;
+}
+
+.material-water-text {
+  @apply text-blue-400;
+  color: #60A5FA;
+}
+
+.material-air-text {
+  @apply text-gray-400;
+  color: #F3F4F6;
+}
+
+.material-concrete-text {
+  @apply text-gray-500;
+  color: #9CA3AF;
+}
+
+/* Material indicators */
+.material-indicator {
+  @apply w-4 h-4 rounded-full border-2 border-white shadow-sm;
+}
+
+.material-indicator.clay {
+  background-color: #8B4513;
+}
+
+.material-indicator.sand {
+  background-color: #F4A460;
+}
+
+.material-indicator.gravel {
+  background-color: #A0522D;
+}
+
+.material-indicator.rock {
+  background-color: #708090;
+}
+
+.material-indicator.silt {
+  background-color: #DEB887;
+}
+
+.material-indicator.organic {
+  background-color: #654321;
+}
+
+.material-indicator.fill {
+  background-color: #D2691E;
+}
+
+.material-indicator.bedrock {
+  background-color: #4A5568;
+}
+
+.material-indicator.limestone {
+  background-color: #E5E7EB;
+}
+
+.material-indicator.sandstone {
+  background-color: #FCD34D;
+}
+
+.material-indicator.shale {
+  background-color: #94A3B8;
+}
+
+.material-indicator.granite {
+  background-color: #6B7280;
+}
+
+.material-indicator.water {
+  background-color: #60A5FA;
+}
+
+.material-indicator.air {
+  background-color: #F3F4F6;
+}
+
+.material-indicator.concrete {
+  background-color: #9CA3AF;
+}
+
+/* Material patterns for better visual distinction */
+.material-pattern-dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+.material-pattern-lines {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(255, 255, 255, 0.1) 4px,
+    rgba(255, 255, 255, 0.1) 8px
+  );
+}
+
+.material-pattern-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.material-pattern-waves {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 4px,
+    rgba(255, 255, 255, 0.1) 4px,
+    rgba(255, 255, 255, 0.1) 8px
+  );
+}
+
+/* Material legends */
+.material-legend {
+  @apply flex items-center gap-2 p-2 rounded-lg bg-white border border-gray-200;
+}
+
+.material-legend-item {
+  @apply flex items-center gap-2 text-sm font-medium;
+}
+
+.material-legend-swatch {
+  @apply w-4 h-4 rounded border border-gray-300;
+}
+
+.material-legend-name {
+  @apply text-gray-700;
+}
+
+.material-legend-description {
+  @apply text-xs text-gray-500;
+}
+
+/* Contrast enhancements */
+.material-high-contrast .material-clay {
+  @apply bg-yellow-900 text-white border-2 border-yellow-700;
+}
+
+.material-high-contrast .material-sand {
+  @apply bg-yellow-600 text-white border-2 border-yellow-800;
+}
+
+.material-high-contrast .material-gravel {
+  @apply bg-stone-800 text-white border-2 border-stone-600;
+}
+
+.material-high-contrast .material-rock {
+  @apply bg-slate-800 text-white border-2 border-slate-600;
+}
+
+.material-high-contrast .material-silt {
+  @apply bg-amber-700 text-white border-2 border-amber-500;
+}
+
+.material-high-contrast .material-organic {
+  @apply bg-amber-900 text-white border-2 border-amber-700;
+}
+
+.material-high-contrast .material-fill {
+  @apply bg-orange-800 text-white border-2 border-orange-600;
+}
+
+/* Accessibility features */
+.material-accessible {
+  @apply relative;
+}
+
+.material-accessible::after {
+  @apply absolute inset-0 flex items-center justify-center text-xs font-bold;
+  content: attr(data-material-code);
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Print styles */
+@media print {
+  .material-clay { @apply bg-gray-300 text-black; }
+  .material-sand { @apply bg-gray-200 text-black; }
+  .material-gravel { @apply bg-gray-400 text-black; }
+  .material-rock { @apply bg-gray-500 text-white; }
+  .material-silt { @apply bg-gray-250 text-black; }
+  .material-organic { @apply bg-gray-600 text-white; }
+  .material-fill { @apply bg-gray-350 text-black; }
+  .material-bedrock { @apply bg-gray-700 text-white; }
+  .material-limestone { @apply bg-gray-100 text-black; }
+  .material-sandstone { @apply bg-gray-200 text-black; }
+  .material-shale { @apply bg-gray-400 text-black; }
+  .material-granite { @apply bg-gray-600 text-white; }
+  .material-water { @apply bg-gray-300 text-black; }
+  .material-air { @apply bg-white text-black border border-black; }
+  .material-concrete { @apply bg-gray-500 text-white; }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .material-legend {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .material-legend-name {
+    @apply text-gray-200;
+  }
+  
+  .material-legend-description {
+    @apply text-gray-400;
+  }
+}

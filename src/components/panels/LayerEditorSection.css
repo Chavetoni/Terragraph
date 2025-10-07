@@ -1,0 +1,228 @@
+/* Enhanced Layer Editor Section Styling */
+
+.layer-editor-section {
+  @apply bg-white rounded-lg shadow-sm border border-gray-200 p-6;
+}
+
+/* Action buttons */
+.action-button-container {
+  @apply flex gap-3 mb-6;
+}
+
+.action-button {
+  @apply flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-all duration-200;
+}
+
+.add-button {
+  @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.add-button-hover {
+  @apply bg-blue-700 shadow-md transform -translate-y-0.5;
+}
+
+.remove-button {
+  @apply bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+}
+
+.remove-button-hover {
+  @apply bg-red-700 shadow-md transform -translate-y-0.5;
+}
+
+.remove-button-disabled {
+  @apply bg-gray-300 text-gray-500 cursor-not-allowed;
+}
+
+.remove-button-disabled:hover {
+  @apply bg-gray-300 text-gray-500 transform-none shadow-none;
+}
+
+/* Layer selector */
+.layer-selector-grid {
+  @apply grid grid-cols-4 gap-2 mb-6;
+}
+
+@media (max-width: 768px) {
+  .layer-selector-grid {
+    @apply grid-cols-2;
+  }
+}
+
+.layer-selector-item {
+  @apply w-full h-12 rounded-lg border-2 border-gray-300 cursor-pointer transition-all duration-200 flex items-center justify-center text-white font-medium text-sm;
+}
+
+.layer-selector-item:hover {
+  @apply border-gray-400 shadow-sm transform scale-105;
+}
+
+.layer-selector-item:focus {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+}
+
+.layer-selector-item-active {
+  @apply border-blue-500 ring-2 ring-blue-200 shadow-md;
+}
+
+/* Layer selector label */
+.layer-selector-label {
+  @apply text-base font-semibold text-gray-700 mb-3;
+}
+
+/* Enhanced accessibility */
+.layer-selector-item[role="radio"] {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.layer-selector-item[aria-checked="true"] {
+  @apply ring-2 ring-blue-500 border-blue-500;
+}
+
+/* Loading states */
+.layer-editor-loading {
+  @apply relative;
+}
+
+.layer-editor-loading::after {
+  @apply absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center;
+  content: '';
+  z-index: 10;
+}
+
+.layer-editor-spinner {
+  @apply w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin;
+}
+
+/* Empty state */
+.layer-editor-empty {
+  @apply text-center py-8 text-gray-500;
+}
+
+.layer-editor-empty-icon {
+  @apply w-12 h-12 mx-auto mb-4 text-gray-400;
+}
+
+.layer-editor-empty-title {
+  @apply text-lg font-medium text-gray-600 mb-2;
+}
+
+.layer-editor-empty-description {
+  @apply text-sm text-gray-500 mb-4;
+}
+
+/* Layer preview */
+.layer-preview {
+  @apply mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200;
+}
+
+.layer-preview-title {
+  @apply text-sm font-medium text-gray-700 mb-2;
+}
+
+.layer-preview-content {
+  @apply text-xs text-gray-600 space-y-1;
+}
+
+.layer-preview-property {
+  @apply flex justify-between items-center;
+}
+
+.layer-preview-label {
+  @apply font-medium;
+}
+
+.layer-preview-value {
+  @apply text-gray-800;
+}
+
+/* Drag and drop indicators */
+.layer-drag-preview {
+  @apply bg-blue-100 border-2 border-dashed border-blue-300 rounded-lg p-4 text-center text-blue-600;
+}
+
+.layer-drop-zone {
+  @apply border-2 border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-500 transition-colors duration-200;
+}
+
+.layer-drop-zone.drag-over {
+  @apply border-blue-500 bg-blue-50 text-blue-600;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .layer-editor-section {
+    @apply p-4;
+  }
+  
+  .action-button-container {
+    @apply flex-col;
+  }
+  
+  .action-button {
+    @apply w-full justify-center;
+  }
+  
+  .layer-selector-grid {
+    @apply grid-cols-1;
+  }
+  
+  .layer-selector-item {
+    @apply h-16 text-base;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .layer-selector-item {
+    @apply border-4 border-black;
+  }
+  
+  .layer-selector-item-active {
+    @apply border-4 border-blue-800 bg-blue-800;
+  }
+  
+  .add-button {
+    @apply bg-black text-white;
+  }
+  
+  .remove-button {
+    @apply bg-red-800 text-white;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .layer-selector-item,
+  .action-button,
+  .layer-drop-zone {
+    transition: none;
+  }
+  
+  .layer-selector-item:hover {
+    @apply transform-none;
+  }
+  
+  .add-button-hover,
+  .remove-button-hover {
+    @apply transform-none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .layer-editor-section {
+    @apply shadow-none border-2 border-black;
+  }
+  
+  .layer-selector-item {
+    @apply border-black;
+  }
+  
+  .layer-selector-item-active {
+    @apply border-2 border-black bg-gray-300;
+  }
+  
+  .action-button-container {
+    @apply hidden;
+  }
+}

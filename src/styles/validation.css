@@ -1,0 +1,340 @@
+/* Validation Styling System */
+
+/* Base validation classes */
+.field-valid {
+  @apply border-green-300 focus:border-green-500 focus:ring-green-200;
+}
+
+.field-valid:focus {
+  @apply ring-2 ring-green-200;
+}
+
+.field-invalid {
+  @apply border-red-300 focus:border-red-500 focus:ring-red-200;
+}
+
+.field-invalid:focus {
+  @apply ring-2 ring-red-200;
+}
+
+.field-warning {
+  @apply border-yellow-300 focus:border-yellow-500 focus:ring-yellow-200;
+}
+
+.field-warning:focus {
+  @apply ring-2 ring-yellow-200;
+}
+
+.field-pending {
+  @apply border-blue-300 focus:border-blue-500 focus:ring-blue-200;
+}
+
+.field-pending:focus {
+  @apply ring-2 ring-blue-200;
+}
+
+/* Validation messages */
+.validation-message {
+  @apply text-sm mt-1 flex items-center gap-2 font-medium;
+}
+
+.validation-message.error {
+  @apply text-red-600;
+}
+
+.validation-message.warning {
+  @apply text-yellow-600;
+}
+
+.validation-message.success {
+  @apply text-green-600;
+}
+
+.validation-message.info {
+  @apply text-blue-600;
+}
+
+.validation-icon {
+  @apply w-4 h-4 flex-shrink-0;
+}
+
+/* Validation tooltips */
+.validation-tooltip {
+  @apply absolute z-10 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg shadow-sm opacity-0 invisible transition-opacity duration-300;
+}
+
+.validation-tooltip.show {
+  @apply opacity-100 visible;
+}
+
+.validation-tooltip.error {
+  @apply bg-red-600;
+}
+
+.validation-tooltip.warning {
+  @apply bg-yellow-600;
+}
+
+.validation-tooltip.success {
+  @apply bg-green-600;
+}
+
+.validation-tooltip::after {
+  @apply absolute border-4 border-transparent;
+  content: '';
+  top: 100%;
+  left: 50%;
+  margin-left: -4px;
+  border-top-color: inherit;
+}
+
+/* Field highlighting */
+.field-highlight {
+  @apply relative;
+}
+
+.field-highlight::before {
+  @apply absolute inset-0 border-2 border-transparent rounded-md pointer-events-none;
+  content: '';
+  animation: pulse-border 2s infinite;
+}
+
+.field-highlight.error::before {
+  @apply border-red-500;
+}
+
+.field-highlight.warning::before {
+  @apply border-yellow-500;
+}
+
+.field-highlight.success::before {
+  @apply border-green-500;
+}
+
+@keyframes pulse-border {
+  0% {
+    border-color: transparent;
+  }
+  50% {
+    border-color: currentColor;
+  }
+  100% {
+    border-color: transparent;
+  }
+}
+
+/* Progress indicators */
+.validation-progress {
+  @apply flex items-center gap-2 text-sm text-gray-600;
+}
+
+.validation-progress-bar {
+  @apply w-full bg-gray-200 rounded-full h-2;
+}
+
+.validation-progress-fill {
+  @apply h-2 rounded-full transition-all duration-300;
+}
+
+.validation-progress-fill.error {
+  @apply bg-red-500;
+}
+
+.validation-progress-fill.warning {
+  @apply bg-yellow-500;
+}
+
+.validation-progress-fill.success {
+  @apply bg-green-500;
+}
+
+.validation-progress-fill.info {
+  @apply bg-blue-500;
+}
+
+/* Validation status badges */
+.validation-badge {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.validation-badge.error {
+  @apply bg-red-100 text-red-800;
+}
+
+.validation-badge.warning {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.validation-badge.success {
+  @apply bg-green-100 text-green-800;
+}
+
+.validation-badge.info {
+  @apply bg-blue-100 text-blue-800;
+}
+
+/* Form validation states */
+.form-group {
+  @apply relative mb-4;
+}
+
+.form-group.has-error .form-label {
+  @apply text-red-700;
+}
+
+.form-group.has-warning .form-label {
+  @apply text-yellow-700;
+}
+
+.form-group.has-success .form-label {
+  @apply text-green-700;
+}
+
+.form-group.has-error .form-input,
+.form-group.has-error .form-select,
+.form-group.has-error .form-textarea {
+  @apply border-red-300 focus:border-red-500 focus:ring-red-200;
+}
+
+.form-group.has-warning .form-input,
+.form-group.has-warning .form-select,
+.form-group.has-warning .form-textarea {
+  @apply border-yellow-300 focus:border-yellow-500 focus:ring-yellow-200;
+}
+
+.form-group.has-success .form-input,
+.form-group.has-success .form-select,
+.form-group.has-success .form-textarea {
+  @apply border-green-300 focus:border-green-500 focus:ring-green-200;
+}
+
+/* Real-time validation feedback */
+.validation-feedback {
+  @apply absolute right-3 top-9 flex items-center justify-center w-5 h-5;
+}
+
+.validation-feedback.error {
+  @apply text-red-500;
+}
+
+.validation-feedback.warning {
+  @apply text-yellow-500;
+}
+
+.validation-feedback.success {
+  @apply text-green-500;
+}
+
+.validation-feedback.loading {
+  @apply text-blue-500;
+}
+
+.validation-spinner {
+  @apply animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full;
+}
+
+/* Validation summary */
+.validation-summary {
+  @apply mb-6 p-4 rounded-lg border;
+}
+
+.validation-summary.error {
+  @apply bg-red-50 border-red-200;
+}
+
+.validation-summary.warning {
+  @apply bg-yellow-50 border-yellow-200;
+}
+
+.validation-summary.success {
+  @apply bg-green-50 border-green-200;
+}
+
+.validation-summary-title {
+  @apply font-medium text-gray-900 mb-2;
+}
+
+.validation-summary-list {
+  @apply space-y-1;
+}
+
+.validation-summary-item {
+  @apply flex items-center gap-2 text-sm;
+}
+
+.validation-summary-item.error {
+  @apply text-red-700;
+}
+
+.validation-summary-item.warning {
+  @apply text-yellow-700;
+}
+
+.validation-summary-item.success {
+  @apply text-green-700;
+}
+
+/* Accessibility enhancements */
+.validation-message[role="alert"] {
+  @apply font-medium;
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .field-valid {
+    @apply border-green-700 focus:border-green-900;
+  }
+  
+  .field-invalid {
+    @apply border-red-700 focus:border-red-900;
+  }
+  
+  .field-warning {
+    @apply border-yellow-700 focus:border-yellow-900;
+  }
+  
+  .validation-message.error {
+    @apply text-red-900;
+  }
+  
+  .validation-message.warning {
+    @apply text-yellow-900;
+  }
+  
+  .validation-message.success {
+    @apply text-green-900;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .validation-progress-fill,
+  .validation-tooltip,
+  .validation-spinner {
+    transition: none;
+    animation: none;
+  }
+  
+  .field-highlight::before {
+    animation: none;
+  }
+}
+
+/* Print styles */
+@media print {
+  .validation-message.error {
+    @apply text-black;
+  }
+  
+  .validation-message.warning {
+    @apply text-black;
+  }
+  
+  .validation-message.success {
+    @apply text-black;
+  }
+  
+  .validation-tooltip {
+    @apply hidden;
+  }
+}

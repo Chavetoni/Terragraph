@@ -1,0 +1,360 @@
+/* Enhanced Borehole Layer Editor Styling */
+.borehole-layer-editor {
+  @apply bg-transparent;
+}
+
+/* Layer Cards List with Increased Spacing */
+.layer-cards-list {
+  @apply space-y-6;
+  min-height: 120px;
+}
+
+/* Layer Card - Matching App Style */
+.layer-card {
+  @apply flex gap-4 p-4 rounded-lg transition-all duration-200;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  margin-bottom: 8px;
+}
+
+.layer-card:hover {
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.layer-card.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.layer-card.warning {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+}
+
+/* Simplified Visual Indicator */
+.layer-visual-indicator {
+  @apply flex flex-col items-center gap-2 w-8;
+}
+
+.layer-thickness-bar {
+  @apply relative w-1 bg-gray-700 rounded-full flex-1 min-h-[40px];
+}
+
+.layer-color-bar {
+  @apply absolute inset-0 rounded-full;
+}
+
+/* Content Wrapper */
+.layer-content-wrapper {
+  @apply flex-1 space-y-4;
+}
+
+/* Layer Header */
+.layer-header {
+  @apply flex items-start justify-between;
+}
+
+.layer-header-left {
+  @apply flex items-start gap-3;
+}
+
+.drag-handle-grip {
+  @apply cursor-grab text-gray-500 hover:text-gray-300 transition-colors mt-1;
+}
+
+.drag-handle-grip:active {
+  @apply cursor-grabbing;
+}
+
+.drag-handle-grip svg {
+  @apply w-4 h-4;
+}
+
+.layer-title {
+  @apply flex flex-col;
+}
+
+.layer-name {
+  @apply text-base font-medium;
+  color: var(--text-primary);
+}
+
+.layer-thickness-info {
+  @apply text-xs;
+  color: var(--text-secondary);
+}
+
+.layer-remove-btn {
+  @apply p-1.5 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-all;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.layer-remove-btn svg {
+  @apply w-4 h-4;
+}
+
+/* Layer Controls */
+.layer-controls {
+  @apply grid grid-cols-2 gap-4;
+}
+
+.control-group {
+  @apply space-y-2;
+}
+
+.control-header {
+  @apply flex items-center gap-2;
+}
+
+.control-label {
+  @apply text-xs font-medium;
+  color: var(--text-secondary);
+}
+
+.material-tooltip {
+  @apply text-xs cursor-help;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.material-tooltip:hover {
+  opacity: 1;
+}
+
+/* Material Selector - App Style */
+.material-selector {
+  @apply flex items-center gap-2;
+}
+
+.material-color-preview {
+  @apply w-8 h-8 rounded border-2 border-gray-700 flex-shrink-0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.material-dropdown {
+  @apply flex-1 px-3 py-2 text-sm rounded-md focus:outline-none focus:ring-2 focus:border-transparent;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.material-dropdown:focus {
+  --tw-ring-color: var(--accent-color);
+}
+
+.material-dropdown:focus {
+  --tw-ring-color: var(--accent-color);
+}
+
+/* Depth Controls */
+.depth-inputs-row {
+  @apply flex items-center gap-3;
+}
+
+.depth-input-container {
+  @apply flex items-center gap-1;
+}
+
+.depth-prefix {
+  @apply text-xs font-medium;
+  color: var(--text-secondary);
+  min-width: fit-content;
+}
+
+.depth-input-inline {
+  @apply px-2 py-1.5 text-sm rounded-md focus:outline-none focus:ring-2 focus:border-transparent text-center;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 60px;
+  min-width: 60px;
+}
+
+.depth-input-inline:focus {
+  --tw-ring-color: var(--accent-color);
+}
+
+.depth-input-inline:disabled {
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.depth-suffix {
+  @apply text-xs;
+  color: var(--text-secondary);
+}
+
+.depth-arrow {
+  @apply flex items-center justify-center text-gray-500 flex-shrink-0;
+}
+
+.depth-arrow svg {
+  @apply w-5 h-5;
+}
+
+/* Validation Messages */
+.layer-messages {
+  @apply space-y-2 pt-2 border-t;
+  border-color: var(--border-color);
+}
+
+.message {
+  @apply flex items-center gap-2 text-xs;
+}
+
+.message svg {
+  @apply w-4 h-4 flex-shrink-0;
+}
+
+.error-message {
+  @apply text-red-400;
+}
+
+.error-message svg {
+  @apply text-red-500;
+}
+
+.warning-message {
+  @apply text-yellow-400;
+}
+
+.warning-message svg {
+  @apply text-yellow-500;
+}
+
+/* Add Layer Section with More Spacing */
+.add-layer-section {
+  @apply mt-10;
+}
+
+.add-layer-button-new {
+  @apply w-full py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl border-none transition-all duration-200;
+  background: #10b981;
+  color: white;
+  cursor: pointer;
+}
+
+.add-layer-button-new:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.add-layer-button-new svg {
+  @apply w-5 h-5;
+}
+
+/* Empty State */
+.empty-state {
+  @apply flex flex-col items-center justify-center py-12 text-center;
+  color: var(--text-secondary);
+}
+
+.empty-state svg {
+  @apply mb-4;
+}
+
+.empty-state p {
+  @apply text-sm mb-1;
+}
+
+.empty-hint {
+  @apply text-xs opacity-60;
+}
+
+/* Drag and Drop States */
+.layer-card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.layer-card.drag-overlay {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  cursor: grabbing;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .layer-controls {
+    @apply grid-cols-1 gap-3;
+  }
+  
+  .layer-card {
+    @apply flex-col;
+  }
+  
+  .layer-visual-indicator {
+    @apply flex-row w-full;
+  }
+  
+  .layer-thickness-bar {
+    @apply w-full h-1 min-h-0;
+  }
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.layer-card {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Smooth height transitions */
+.layer-cards-list {
+  transition: min-height 0.3s ease;
+}
+
+/* Focus states for accessibility */
+.material-dropdown:focus,
+.depth-value:focus,
+.layer-remove-btn:focus,
+.add-layer-button-new:focus {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* Hover effects */
+.layer-card:hover .drag-handle-grip {
+  color: var(--text-primary);
+}
+
+.layer-card:hover .layer-thickness-bar {
+  background: var(--border-color);
+}
+
+/* Material type indicators */
+.material-dropdown option {
+  padding: 8px;
+}
+
+/* Improved scrollbar for layer list */
+.layer-cards-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.layer-cards-list::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+  border-radius: 3px;
+}
+
+.layer-cards-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.layer-cards-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}

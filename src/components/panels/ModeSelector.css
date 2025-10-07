@@ -1,0 +1,291 @@
+/* Enhanced Mode Selector Styling with Dark Theme Support */
+.mode-selector {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.mode-header {
+  @apply mb-6;
+}
+
+.mode-title {
+  @apply text-lg font-semibold mb-2;
+  color: var(--text-primary);
+}
+
+.mode-description {
+  @apply text-sm mb-0;
+  color: var(--text-secondary);
+}
+
+.mode-toggle {
+  @apply flex rounded-lg p-1 mb-6;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mode-option {
+  @apply flex-1 flex items-center py-3 px-4 rounded-md transition-all duration-200 cursor-pointer border-0 bg-transparent relative;
+  position: relative;
+}
+
+.mode-option.active {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.mode-option.inactive {
+  color: var(--text-secondary);
+}
+
+.mode-option.inactive:hover {
+  color: var(--text-primary);
+  background: rgba(59, 130, 246, 0.1);
+  transform: translateY(-0.5px);
+}
+
+.mode-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.mode-option.disabled:hover {
+  transform: none;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.mode-option:focus {
+  @apply outline-none;
+  box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.mode-icon {
+  @apply mr-3 flex-shrink-0;
+}
+
+.mode-content {
+  @apply flex flex-col items-start text-left;
+}
+
+.mode-label {
+  @apply text-sm font-semibold;
+}
+
+.mode-subtitle {
+  @apply text-xs opacity-80 mt-0.5;
+}
+
+.mode-tooltip {
+  @apply absolute top-full left-0 right-0 mt-2 p-4 rounded-lg z-50 shadow-xl;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  animation: tooltipFadeIn 0.2s ease-out;
+}
+
+.mode-info {
+  @apply mt-4 p-4 rounded-lg;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.mode-info-content {
+  @apply text-sm;
+  color: var(--text-primary);
+}
+
+.mode-info-content p {
+  @apply mb-3;
+}
+
+.capability-tags {
+  @apply flex flex-wrap gap-2;
+}
+
+.capability-tag {
+  @apply px-3 py-1 text-xs font-medium rounded-full;
+}
+
+.capability-tag.conceptual {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.capability-tag.data-driven {
+  @apply bg-green-100 text-green-800;
+}
+
+.data-summary {
+  @apply mt-6 pt-6 border-t;
+  border-color: var(--border-color);
+}
+
+.summary-title {
+  @apply text-sm font-semibold mb-3;
+  color: var(--text-primary);
+}
+
+.summary-grid {
+  @apply grid grid-cols-3 gap-4;
+}
+
+.summary-item {
+  @apply text-center p-3 rounded-lg;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.summary-value {
+  @apply text-lg font-bold mb-1;
+  color: var(--text-primary);
+}
+
+.summary-label {
+  @apply text-xs;
+  color: var(--text-secondary);
+}
+
+/* Animations */
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark theme specific overrides */
+@media (prefers-color-scheme: dark) {
+  .capability-tag.conceptual {
+    @apply bg-blue-900 text-blue-200;
+  }
+  
+  .capability-tag.data-driven {
+    @apply bg-green-900 text-green-200;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .mode-selector {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .mode-header {
+    @apply mb-4;
+  }
+  
+  .mode-toggle {
+    @apply flex-col p-2 gap-2;
+  }
+  
+  .mode-option {
+    @apply mb-0 py-4 px-3;
+    width: 100%;
+  }
+  
+  .mode-option.active {
+    background: var(--accent-color);
+  }
+  
+  .summary-grid {
+    @apply grid-cols-3 gap-2;
+  }
+  
+  .summary-item {
+    @apply p-2;
+  }
+  
+  .summary-value {
+    @apply text-base;
+  }
+  
+  .mode-tooltip {
+    @apply left-2 right-2;
+    max-width: calc(100vw - 32px);
+  }
+}
+
+@media (max-width: 480px) {
+  .capability-tags {
+    @apply flex-col;
+  }
+  
+  .summary-grid {
+    @apply grid-cols-1 gap-3;
+  }
+}
+
+/* Accessibility Enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .mode-option,
+  .mode-tooltip {
+    transition: none;
+    animation: none;
+  }
+  
+  .mode-option.active {
+    transform: none;
+  }
+  
+  .mode-option.inactive:hover {
+    transform: none;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .mode-selector {
+    @apply border-2 border-black;
+  }
+  
+  .mode-option.active {
+    @apply bg-black text-white border-2 border-white;
+  }
+  
+  .mode-option.inactive {
+    @apply text-black border-2 border-gray-400;
+  }
+  
+  .summary-item {
+    @apply border-2 border-black;
+  }
+}
+
+/* Focus Indicators */
+.mode-option:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* Improved hover states */
+.mode-option:not(.disabled):hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mode-option.active:hover {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Smooth transitions for better UX */
+.mode-selector,
+.summary-item {
+  transition: all 0.2s ease;
+}
+
+.summary-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}

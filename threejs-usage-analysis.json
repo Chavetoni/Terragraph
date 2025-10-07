@@ -1,0 +1,276 @@
+{
+  "src/utils/threeJsHelpers.js": [
+    "BufferGeometry",
+    "CanvasTexture",
+    "CircleGeometry",
+    "Color",
+    "DoubleSide",
+    "Group",
+    "Line",
+    "LineBasicMaterial",
+    "Mesh",
+    "MeshBasicMaterial",
+    "Sprite",
+    "SpriteMaterial",
+    "TextureLoader",
+    "Vector3"
+  ],
+  "src/utils/volumetricDisposal.js": [
+    "Group",
+    "Material",
+    "Mesh",
+    "Object3D"
+  ],
+  "src/utils/modelUtils.js": [
+    "Color"
+  ],
+  "src/utils/optimizedMemoryManagement.js": [
+    "BoxGeometry",
+    "BufferGeometry",
+    "CanvasTexture",
+    "CylinderGeometry",
+    "Material",
+    "Mesh",
+    "MeshBasicMaterial",
+    "MeshLambertMaterial",
+    "MeshPhongMaterial",
+    "MeshStandardMaterial",
+    "PlaneGeometry",
+    "SphereGeometry",
+    "Texture",
+    "WebGLRenderTarget"
+  ],
+  "src/services/VolumetricMeshGenerator.js": [
+    "BufferAttribute",
+    "BufferGeometry",
+    "Color",
+    "DoubleSide",
+    "EdgesGeometry",
+    "LineBasicMaterial",
+    "LineSegments",
+    "Mesh",
+    "MeshPhysicalMaterial",
+    "MeshStandardMaterial",
+    "NormalBlending",
+    "RepeatWrapping",
+    "SphereGeometry"
+  ],
+  "src/services/SceneExporter.js": [
+    "Box3",
+    "BoxGeometry",
+    "BufferAttribute",
+    "BufferGeometry",
+    "CanvasTexture",
+    "Color",
+    "CylinderGeometry",
+    "DirectionalLight",
+    "DoubleSide",
+    "Float32BufferAttribute",
+    "FrontSide",
+    "Group",
+    "Line",
+    "LineBasicMaterial",
+    "Mesh",
+    "MeshBasicMaterial",
+    "MeshStandardMaterial",
+    "Object3D",
+    "PlaneGeometry",
+    "Scene",
+    "Vector2",
+    "Vector3"
+  ],
+  "src/services/SimpleSceneManager.js": [
+    "BoxGeometry",
+    "BufferAttribute",
+    "BufferGeometry",
+    "Color",
+    "CylinderGeometry",
+    "DoubleSide",
+    "Group",
+    "Line",
+    "LineBasicMaterial",
+    "Mesh",
+    "MeshBasicMaterial",
+    "MeshStandardMaterial",
+    "SphereGeometry",
+    "Vector3"
+  ],
+  "src/services/OptimizedSceneManager.js": [
+    "BoxGeometry",
+    "BufferGeometryUtils",
+    "Color",
+    "CylinderGeometry",
+    "DoubleSide",
+    "Group",
+    "InstancedMesh",
+    "Matrix4",
+    "Mesh",
+    "MeshBasicMaterial",
+    "MeshPhongMaterial",
+    "MeshStandardMaterial",
+    "Quaternion",
+    "SphereGeometry",
+    "Vector3"
+  ],
+  "src/services/BoreholeVisualizer.js": [
+    "BoxGeometry",
+    "BufferAttribute",
+    "CircleGeometry",
+    "Color",
+    "ConeGeometry",
+    "CylinderGeometry",
+    "DoubleSide",
+    "Group",
+    "Mesh",
+    "MeshBasicMaterial",
+    "MeshLambertMaterial",
+    "MeshStandardMaterial",
+    "Object3D",
+    "RingGeometry",
+    "SphereGeometry"
+  ],
+  "src/services/ThreeJsObjectFactory.js": [
+    "Box3",
+    "BoxGeometry",
+    "BufferGeometry",
+    "Color",
+    "CylinderGeometry",
+    "Group",
+    "Line",
+    "LineBasicMaterial",
+    "Mesh",
+    "MeshStandardMaterial",
+    "Vector3"
+  ],
+  "src/services/SceneManager.js": [
+    "AmbientLight",
+    "BoxGeometry",
+    "DirectionalLight",
+    "GridHelper",
+    "MathUtils",
+    "Mesh",
+    "MeshBasicMaterial",
+    "PerspectiveCamera",
+    "Plane",
+    "Raycaster",
+    "Scene",
+    "Vector2",
+    "Vector3",
+    "WebGLRenderer"
+  ],
+  "src/services/TextureManager.js": [
+    "CanvasTexture",
+    "Color",
+    "NearestFilter",
+    "RepeatWrapping",
+    "Texture"
+  ],
+  "src/services/MultiLevelSurfaceGenerator.js": [
+    "Color"
+  ],
+  "src/services/OptimizedVolumetricMeshGenerator.js": [
+    "BufferGeometry",
+    "Color",
+    "DoubleSide",
+    "Float32BufferAttribute",
+    "MeshStandardMaterial"
+  ],
+  "src/services/GLTFLoader.js": [
+    "Box3",
+    "Vector3"
+  ],
+  "src/contexts/ThreeJsContext.js": [
+    "ACESFilmicToneMapping",
+    "AmbientLight",
+    "Color",
+    "DirectionalLight",
+    "GridHelper",
+    "PCFSoftShadowMap",
+    "PerspectiveCamera",
+    "SRGBColorSpace",
+    "Scene",
+    "Vector2",
+    "WebGLRenderer"
+  ],
+  "src/contexts/SiteMapContext.js": [
+    "MathUtils",
+    "Mesh",
+    "MeshBasicMaterial",
+    "PlaneGeometry",
+    "TextureLoader"
+  ],
+  "src/contexts/BoreholeContext.js": [
+    "Color",
+    "Matrix4",
+    "Mesh",
+    "MeshBasicMaterial",
+    "PlaneGeometry",
+    "Raycaster",
+    "SphereGeometry",
+    "Vector2",
+    "Vector3"
+  ],
+  "src/hooks/useSiteMap.js": [
+    "MathUtils",
+    "Mesh",
+    "MeshBasicMaterial",
+    "PlaneGeometry",
+    "TextureLoader"
+  ],
+  "src/hooks/useSoilTextures.js": [
+    "Color",
+    "RepeatWrapping"
+  ],
+  "src/hooks/useBoreholes.js": [
+    "Plane",
+    "Raycaster",
+    "Vector2",
+    "Vector3"
+  ],
+  "src/hooks/useThreeJsScene.js": [
+    "AmbientLight",
+    "Color",
+    "DirectionalLight",
+    "Fog",
+    "PerspectiveCamera",
+    "Scene",
+    "WebGLRenderer"
+  ],
+  "src/components/canvas/VolumetricDepthScale.js": [
+    "Box3",
+    "BufferGeometry",
+    "Group",
+    "Line",
+    "LineBasicMaterial",
+    "Material",
+    "Vector3"
+  ],
+  "src/components/canvas/VolumetricLabels.js": [
+    "Box3",
+    "BufferGeometry",
+    "Group",
+    "Line",
+    "LineBasicMaterial",
+    "Vector3"
+  ],
+  "src/components/canvas/VolumetricGeologicalModel.js": [
+    "Box3",
+    "Color",
+    "DoubleSide",
+    "Group",
+    "Mesh",
+    "Vector3"
+  ],
+  "src/components/visualization/ConfidenceMappingOverlay.js": [
+    "BufferGeometry",
+    "Color",
+    "DoubleSide",
+    "Group",
+    "Line",
+    "LineBasicMaterial",
+    "Mesh",
+    "MeshBasicMaterial",
+    "PlaneGeometry",
+    "Vector3"
+  ]
+}
