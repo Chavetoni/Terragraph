@@ -1,7 +1,3 @@
-/**
- * @fileoverview Display options control panel component
- * Provides UI controls for toggling visibility of various 3D scene elements
- */
 
 import React from 'react';
 import { useDisplayOptions } from '../../contexts/DisplayOptionsContext';

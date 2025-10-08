@@ -29,9 +29,6 @@ export class OptimizedVolumetricMeshGenerator {
   // Static cache for interpolation results
   static interpolationCache = new Map();
   
-  /**
-   * Get cached or create new color using USCS materials system
-   */
   static getMaterialColor(material) {
     if (!COLOR_CACHE.has(material)) {
       const materialProps = getMaterialProperties(material);
@@ -40,9 +37,6 @@ export class OptimizedVolumetricMeshGenerator {
     return COLOR_CACHE.get(material);
   }
 
-  /**
-   * Build spatial index with caching
-   */
   static buildSpatialIndex(boreholes) {
     // Check cache first
     if (this.spatialIndexCache.has(boreholes)) {
@@ -76,9 +70,6 @@ export class OptimizedVolumetricMeshGenerator {
     return index;
   }
 
-  /**
-   * Optimized nearest neighbor search with early termination
-   */
   static getNearbyBoreholes(x, y, radius, spatialIndex) {
     const radiusSq = radius * radius;
     const gridRadius = Math.ceil(radius / SPATIAL_GRID_SIZE);
@@ -116,9 +107,6 @@ export class OptimizedVolumetricMeshGenerator {
     return candidates.map(item => item.borehole);
   }
 
-  /**
-   * Get or create pooled geometry
-   */
   static getPooledGeometry(vertices, indices) {
     // Try to reuse existing geometry
     for (const geom of GEOMETRY_POOL) {
@@ -155,9 +143,6 @@ export class OptimizedVolumetricMeshGenerator {
     return geometry;
   }
 
-  /**
-   * Get or create cached material
-   */
   static getCachedMaterial(material, opacity = 0.8) {
     const key = `${material}_${opacity}`;
     
@@ -177,9 +162,6 @@ export class OptimizedVolumetricMeshGenerator {
     return MATERIAL_POOL.get(key);
   }
 
-  /**
-   * Optimized layer volume creation with vertex sharing
-   */
   static createLayerVolume(topSurface, bottomSurface, material, extent, resolution, options = {}) {
     const { opacity = 0.5 } = options;
     
@@ -270,9 +252,6 @@ export class OptimizedVolumetricMeshGenerator {
     };
   }
 
-  /**
-   * Generate optimized triangle indices with caching
-   */
   static generateOptimizedIndices(resolution) {
     const cacheKey = `indices_${resolution}`;
     
@@ -323,9 +302,6 @@ export class OptimizedVolumetricMeshGenerator {
     return indexArray;
   }
 
-  /**
-   * Clear caches and pools
-   */
   static clearCaches() {
     this.spatialIndexCache = new WeakMap();
     this.interpolationCache.clear();
@@ -339,9 +315,6 @@ export class OptimizedVolumetricMeshGenerator {
     // Don't dispose materials as they can be reused
   }
 
-  /**
-   * Dispose all cached resources
-   */
   static dispose() {
     // Dispose geometries
     for (const geom of GEOMETRY_POOL) {

@@ -10,7 +10,6 @@ import { Color, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Raycaster, Sphe
 
 export const BoreholeContext = createContext();
 
-// Helper function to get borehole type color
 const getBoreholetypeColor = (type) => {
   return BOREHOLE_TYPES[type]?.color || BOREHOLE_TYPES.OTHER.color;
 };
@@ -33,12 +32,10 @@ export const BoreholeProvider = ({ children }) => {
   const [pendingBoreholeData, setPendingBoreholeData] = useState(null);
   const raycasterRef = useRef(new Raycaster());
   const visualizerRef = useRef(null);
-  
-  // Performance optimization: Reusable objects to reduce garbage collection
+
   const mouseVectorRef = useRef(new Vector2());
   const tempPlaneRef = useRef(null);
-  
-  // Object pool for performance optimization
+
   const objectPool = useRef({
     vectors: [],
     matrices: [],
@@ -61,14 +58,9 @@ export const BoreholeProvider = ({ children }) => {
       objectPool.current.matrices.push(matrix);
     }
   });
-  
-  // Raycasting performance optimization: Set up distance culling
+
   useEffect(() => {
     if (raycasterRef.current) {
-      // Don't set default layers here - let each operation handle its own layers
-      // This prevents conflicts between placement and hover operations
-      
-      // Limit raycasting distance to improve performance
       raycasterRef.current.far = 1000;
       raycasterRef.current.params.Points.threshold = 0.1;
       raycasterRef.current.params.Line.threshold = 0.1;
@@ -90,8 +82,6 @@ export const BoreholeProvider = ({ children }) => {
     textureSettings
   } = useDisplayOptions();
 
-
-  // Initialize visualizer when scene is ready
   useEffect(() => {
     if (scene && camera && sceneManager && !visualizerRef.current) {
       visualizerRef.current = new BoreholeVisualizer(scene, camera, sceneManager);

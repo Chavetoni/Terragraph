@@ -6,13 +6,9 @@
 
 import { GeologicalValidator } from './GeologicalValidator';
 
-const EPSILON = 1e-10; // Small value for division-by-zero protection
+const EPSILON = 1e-10;
 
 export class SpatialInterpolationEngine {
-  /**
-   * Build KD-tree for efficient nearest neighbor searches
-   * @private
-   */
   static buildKDTree(points) {
     if (points.length === 0) return null;
     
@@ -20,7 +16,7 @@ export class SpatialInterpolationEngine {
       if (points.length === 0) return null;
       if (points.length === 1) return { point: points[0], left: null, right: null };
       
-      const axis = depth % 2; // Alternate between x and y
+      const axis = depth % 2;
       points.sort((a, b) => axis === 0 ? a.x - b.x : a.y - b.y);
       
       const median = Math.floor(points.length / 2);
@@ -35,10 +31,6 @@ export class SpatialInterpolationEngine {
     return buildTree(points);
   }
   
-  /**
-   * Find k nearest neighbors using KD-tree
-   * @private
-   */
   static findNearestNeighbors(tree, target, k = 8) {
     const nearest = [];
     
@@ -56,8 +48,6 @@ export class SpatialInterpolationEngine {
       
       const axis = depth % 2;
       const diff = axis === 0 ? target.x - node.point.x : target.y - node.point.y;
-      
-      // Search the closer subtree first
       if (diff < 0) {
         search(node.left, depth + 1);
         if (nearest.length < k || Math.abs(diff) < nearest[nearest.length - 1].distance) {
@@ -118,17 +108,12 @@ export class SpatialInterpolationEngine {
       const dx = targetPoint.x - point.x;
       const dy = targetPoint.y - point.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < EPSILON) {
-          // Point is at exact data location - skip to avoid division by zero
-          continue;
-        }
-
-      // Handle exact match
+      if (distance < EPSILON) {
+        continue;
+      }
       if (distance < 0.001) {
         return point.value;
       }
-
-      // Apply distance cutoff if specified
       if (maxDistance && distance > maxDistance) {
         continue;
       }
@@ -137,10 +122,7 @@ export class SpatialInterpolationEngine {
       numerator += weight * point.value;
       denominator += weight;
     }
-
-    // Handle case where all points are beyond maxDistance
     if (denominator === 0) {
-      // Find nearest point
       let minDist = Infinity;
       let nearestValue = 0;
       for (const point of dataPoints) {
@@ -148,7 +130,6 @@ export class SpatialInterpolationEngine {
         const dy = targetPoint.y - point.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < EPSILON) {
-          // Point is at exact data location - skip to avoid division by zero
           continue;
         }
         if (distance < minDist) {
@@ -174,11 +155,9 @@ export class SpatialInterpolationEngine {
     const { power = 2, maxDistance = null } = options;
     const grid = this.generateGrid(gridExtent, resolution);
 
-    // ENHANCED: Handle cases with limited data points using geological principles
     if (layerPoints.length < 3) {
 
       if (layerPoints.length === 1) {
-        // Single point: use geological assumption of horizontal continuity with distance decay
         const point = layerPoints[0];
         const topSurface = grid.map(gridPoint => {
           const result = this.geologicalExtrapolation([point], gridPoint, { valueField: 'topZ' });
@@ -198,7 +177,6 @@ export class SpatialInterpolationEngine {
         });
         return { topSurface, bottomSurface, gridResolution: resolution };
       } else if (layerPoints.length === 2) {
-        // Two points: use constrained linear trend with geological limits
         const p1 = layerPoints[0];
         const p2 = layerPoints[1];
         
@@ -221,8 +199,6 @@ export class SpatialInterpolationEngine {
         return { topSurface, bottomSurface, gridResolution: resolution };
       }
     }
-
-    // Standard IDW interpolation for 3+ points
     const topSurface = grid.map(gridPoint => ({
       ...gridPoint,
       z: this.inverseDistanceWeighting(
@@ -254,26 +230,14 @@ export class SpatialInterpolationEngine {
     return { topSurface, bottomSurface, gridResolution: resolution };
   }
 
-  /**
-   * Linear interpolation between two points for limited data scenarios
-   * @param {Object} targetPoint - Target grid point
-   * @param {Object} p1 - First data point
-   * @param {Object} p2 - Second data point  
-   * @param {string} valueField - Field to interpolate ('topZ' or 'bottomZ')
-   * @returns {number} Interpolated value
-   */
   static linearInterpolation(targetPoint, p1, p2, valueField) {
-    // Calculate distances to both points
     const dist1 = Math.sqrt(Math.pow(targetPoint.x - p1.x, 2) + Math.pow(targetPoint.y - p1.y, 2));
     const dist2 = Math.sqrt(Math.pow(targetPoint.x - p2.x, 2) + Math.pow(targetPoint.y - p2.y, 2));
-    
-    // Handle edge case where target is exactly at one of the points
     if (dist1 === 0) return p1[valueField];
     if (dist2 === 0) return p2[valueField];
-    
-    // Linear interpolation based on inverse distance
+
     const totalDist = dist1 + dist2;
-    const weight1 = (totalDist - dist1) / totalDist; // Closer points get higher weight
+    const weight1 = (totalDist - dist1) / totalDist;
     const weight2 = (totalDist - dist2) / totalDist;
     
     return p1[valueField] * weight1 + p2[valueField] * weight2;

@@ -1,10 +1,5 @@
-// jest-dom adds custom jest matchers for asserting on DOM nodes.
-// allows you to do things like:
-// expect(element).toHaveTextContent(/react/i)
-// learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
-// Mock WebGL context for Three.js testing
 const mockWebGLContext = {
   DEPTH_BUFFER_BIT: 0x00000100,
   STENCIL_BUFFER_BIT: 0x00000400,
@@ -68,7 +63,6 @@ const mockWebGLContext = {
   }
 };
 
-// Mock HTMLCanvasElement.getContext to return our mock WebGL context
 HTMLCanvasElement.prototype.getContext = jest.fn((contextType) => {
   if (contextType === 'webgl' || contextType === 'webgl2') {
     return mockWebGLContext;
@@ -104,11 +98,9 @@ HTMLCanvasElement.prototype.getContext = jest.fn((contextType) => {
   return null;
 });
 
-// Mock WebGLRenderingContext for Three.js
 global.WebGLRenderingContext = function() {};
 global.WebGL2RenderingContext = function() {};
 
-// Three.js Core Classes (actual implementations for math)
 class MockVector3 {
   constructor(x = 0, y = 0, z = 0) {
     this.x = x;
@@ -197,8 +189,7 @@ class MockQuaternion {
   }
 }
 
-// Note: Mock implementations for setupTests must avoid using jest.fn() directly
-// as it's not available in the module scope. Use simple functions instead.
+// Note: Mock implementations must avoid using jest.fn() in module scope
 const mockFn = (returnValue) => {
   const fn = (...args) => {
     if (typeof returnValue === 'function') {
@@ -209,7 +200,6 @@ const mockFn = (returnValue) => {
   return fn;
 };
 
-// Make mock implementations available globally for any modules that need them
 global.mockThreeClasses = {
   Vector3: MockVector3,
   Vector2: MockVector2,
@@ -219,7 +209,6 @@ global.mockThreeClasses = {
   mockFn
 };
 
-// Mock OrbitControls
 global.OrbitControls = function() {
   return {
     enableDamping: true,
@@ -231,13 +220,11 @@ global.OrbitControls = function() {
   };
 };
 
-// Mock ResizeObserver
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }));
 
-// Mock requestAnimationFrame
 global.requestAnimationFrame = jest.fn((cb) => setTimeout(cb, 16));
 global.cancelAnimationFrame = jest.fn();

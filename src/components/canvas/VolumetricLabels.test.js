@@ -1,8 +1,3 @@
-/**
- * @fileoverview Comprehensive tests for VolumetricLabels component
- * Tests the critical display options bug fix and label rendering functionality
- */
-
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
@@ -12,7 +7,6 @@ import { ThreeJsContext } from '../../contexts/ThreeJsContext';
 import { GeologicalModelingContext } from '../../contexts/GeologicalModelingContext';
 import { DisplayOptionsContext } from '../../contexts/DisplayOptionsContext';
 
-// Mock Three.js utilities
 jest.mock('../../utils/threeJsHelpers', () => {
   const mockTHREE = require('three');
   return {
@@ -104,16 +98,15 @@ describe('VolumetricLabels Component', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    console.log = jest.fn(); // Mock console.log for debugging tests
+    console.log = jest.fn();
   });
 
   describe('Critical Bug Fix Validation', () => {
     test('should correctly identify volumetric data when type is volumetric', () => {
       const volumetricData = createMockVolumetricData();
-      
+
       renderWithProviders(volumetricData, true, true);
-      
-      // Verify the component recognizes volumetric data
+
       expect(console.log).toHaveBeenCalledWith(
         'VolumetricLabels: Creating labels for volumetric model',
         expect.objectContaining({

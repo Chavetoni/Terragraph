@@ -4,17 +4,14 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import BoreholeCreationModal from './BoreholeCreationModal';
 
-// Mock Three.js completely for component testing
 jest.mock('three', () => ({
   Color: jest.fn(() => ({ getHex: () => 0xff0000 }))
 }));
 
-// Mock DnD Kit with simple div elements
 jest.mock('@dnd-kit/core');
 jest.mock('@dnd-kit/sortable');
 jest.mock('@dnd-kit/utilities');
 
-// Mock all context dependencies
 const mockBoreholeContext = {
   boreholes: [],
   addBorehole: jest.fn(),
@@ -42,7 +39,6 @@ jest.mock('../../contexts/LayersContext', () => ({
   useLayers: () => mockLayersContext
 }));
 
-// Mock validation utilities
 jest.mock('../../utils/geologicalValidation', () => ({
   validateBoreholeData: jest.fn(() => ({
     isValid: true,
@@ -50,7 +46,6 @@ jest.mock('../../utils/geologicalValidation', () => ({
   }))
 }));
 
-// Mock StandardButton
 jest.mock('./StandardButton', () => {
   return function MockStandardButton(props) {
     return (
@@ -67,7 +62,6 @@ jest.mock('./StandardButton', () => {
   };
 });
 
-// Mock StandardForm components
 jest.mock('./StandardForm', () => {
   const mockReact = require('react');
   return {
@@ -133,7 +127,6 @@ jest.mock('./StandardForm', () => {
   };
 });
 
-// Test utilities
 const defaultProps = {
   isOpen: true,
   onClose: jest.fn(),
@@ -145,10 +138,8 @@ const renderModal = (props = {}) => {
   return render(<BoreholeCreationModal {...mergedProps} />);
 };
 
-// Comprehensive tests for the refactored BoreholeCreationModal
 describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
   beforeEach(() => {
-    // Reset all mocks
     jest.clearAllMocks();
     mockBoreholeContext.addBorehole.mockClear();
     mockBoreholeContext.handleBoreholeCreationCancel.mockClear();
@@ -161,7 +152,6 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
     });
 
     test('✅ Production build successful with 343.17 kB bundle', () => {
-      // This test confirms the build passed as mentioned in the requirements
       expect(true).toBe(true);
     });
 
@@ -181,10 +171,11 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
       
       const standardButtons = screen.getAllByTestId(/^standard-button-/);
       expect(standardButtons.length).toBeGreaterThan(0);
-      
+
+
       standardButtons.forEach(button => {
         expect(button).toHaveClass('mock-standard-button');
-        expect(button).not.toHaveAttribute('style'); // No inline styles
+        expect(button).not.toHaveAttribute('style');
       });
     });
 
@@ -212,12 +203,10 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
 
     test('✅ Enhanced CSS classes applied (BoreholeCreationModal.css)', () => {
       renderModal();
-      
-      // Check that the component is using the expected CSS structure
-      const modal = screen.getByText('Create New Borehole').closest('.modal') || 
+
+      const modal = screen.getByText('Create New Borehole').closest('.modal') ||
                    screen.getByText('Create New Borehole').closest('[class*="modal"]');
-      
-      // Should have some form of modal class structure
+
       expect(modal || screen.getByText('Create New Borehole')).toBeInTheDocument();
     });
   });
@@ -255,8 +244,7 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
   describe('Form Functionality - All Features Preserved', () => {
     test('✅ All basic information fields rendered', () => {
       renderModal();
-      
-      // Verify all key form fields exist
+
       expect(screen.getByText('Borehole ID')).toBeInTheDocument();
       expect(screen.getByText('Name')).toBeInTheDocument();
       expect(screen.getByText('Total Depth (ft)')).toBeInTheDocument();
@@ -284,11 +272,10 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
 
     test('✅ Borehole type selection functional', async () => {
       renderModal();
-      
+
       const typeSelect = screen.getByTestId('select-type');
       expect(typeSelect).toBeInTheDocument();
-      
-      // Should be able to select different types
+
       await userEvent.selectOptions(typeSelect, 'PAVEMENT');
       expect(typeSelect.value).toBe('PAVEMENT');
     });
@@ -319,8 +306,7 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
       
       const basicInfoHeader = screen.getByText('Basic Information');
       expect(basicInfoHeader).toBeInTheDocument();
-      
-      // Should show form fields when expanded
+
       expect(screen.getByTestId('input-name')).toBeInTheDocument();
       expect(screen.getByTestId('input-totalDepth')).toBeInTheDocument();
     });
@@ -347,8 +333,7 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
       await waitFor(async () => {
         const addButton = screen.getByText('Add Layer');
         await userEvent.click(addButton);
-        
-        // Should see Layer 2 after adding
+
         expect(screen.getByText('Layer 2')).toBeInTheDocument();
       });
     });
@@ -358,9 +343,8 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
       
       const layersHeader = screen.getByText('Layers Definition');
       await userEvent.click(layersHeader);
-      
+
       await waitFor(() => {
-        // Should have material selection interface
         expect(screen.getByText('Material')).toBeInTheDocument();
       });
     });
@@ -419,19 +403,16 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
   describe('Integration and Data Flow - No Functionality Loss', () => {
     test('✅ Form submission works correctly', async () => {
       renderModal();
-      
-      // Fill required fields
+
       const nameInput = screen.getByTestId('input-name');
       const depthInput = screen.getByTestId('input-totalDepth');
-      
+
       await userEvent.type(nameInput, 'Refactoring Test Borehole');
       await userEvent.type(depthInput, '30');
-      
-      // Submit form
+
       const submitButton = screen.getByText('Create Borehole');
       await userEvent.click(submitButton);
-      
-      // Should call context method
+
       expect(mockBoreholeContext.addBorehole).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'Refactoring Test Borehole',
@@ -463,8 +444,7 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
 
     test('✅ Context integration maintained', () => {
       renderModal();
-      
-      // Should use borehole context data
+
       expect(mockBoreholeContext.pendingBoreholeData).toBeDefined();
       expect(screen.getByTestId('input-x')).toHaveValue(100);
       expect(screen.getByTestId('input-y')).toHaveValue(50);
@@ -481,8 +461,7 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
       renderModal();
       
       const layersHeader = screen.getByText('Layers Definition');
-      
-      // Rapid accordion toggling
+
       for (let i = 0; i < 3; i++) {
         await userEvent.click(layersHeader);
       }
@@ -498,12 +477,11 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
       
       await waitFor(async () => {
         const addButton = screen.getByText('Add Layer');
-        
-        // Add multiple layers rapidly
+
         for (let i = 0; i < 3; i++) {
           await userEvent.click(addButton);
         }
-        
+
         expect(screen.getByText('Layer 4')).toBeInTheDocument();
       });
     });
@@ -512,8 +490,7 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
   describe('UI/UX and Design System Compliance', () => {
     test('✅ Professional geological interface maintained', () => {
       renderModal();
-      
-      // Check key geological terms are present
+
       expect(screen.getByText('Borehole')).toBeInTheDocument();
       expect(screen.getByText('Layers Definition')).toBeInTheDocument();
       expect(screen.getByText('Water Table')).toBeInTheDocument();
@@ -522,8 +499,7 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
 
     test('✅ Enhanced styling applied without breaking functionality', () => {
       renderModal();
-      
-      // Should have proper form structure
+
       const inputs = screen.getAllByTestId(/^input-/);
       const selects = screen.getAllByTestId(/^select-/);
       const buttons = screen.getAllByTestId(/^standard-button-/);
@@ -535,20 +511,17 @@ describe('BoreholeCreationModal - Comprehensive Refactoring Validation', () => {
 
     test('✅ Accessibility features preserved', () => {
       renderModal();
-      
-      // Check for proper labels
+
       expect(screen.getByText('Name')).toBeInTheDocument();
       expect(screen.getByText('Total Depth (ft)')).toBeInTheDocument();
       expect(screen.getByText('Type')).toBeInTheDocument();
-      
-      // Should have proper form structure
+
       const nameInput = screen.getByTestId('input-name');
       expect(nameInput).toHaveAttribute('type', 'text');
     });
   });
 });
 
-// Original color wheel tests preserved to ensure backwards compatibility
 const ColorWheelTestComponent = () => {
   const [selectedColor, setSelectedColor] = React.useState('#8B4513');
   const [selectedBoreholeType, setSelectedBoreholeType] = React.useState('BUILDING');

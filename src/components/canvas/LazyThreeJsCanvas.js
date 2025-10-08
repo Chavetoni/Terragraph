@@ -1,11 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
 
-// Lazy load the actual Three.js canvas component
 const ThreeJsCanvas = lazy(() => import('./ThreeJsCanvas'));
 
-/**
- * Loading placeholder that shows while Three.js initializes
- */
 const CanvasLoadingPlaceholder = () => (
   <div 
     style={{
@@ -36,20 +32,15 @@ const CanvasLoadingPlaceholder = () => (
   </div>
 );
 
-/**
- * Lazy-loaded Three.js canvas wrapper that defers heavy initialization
- * This component dramatically improves LCP by deferring WebGL context creation
- */
+// Defers WebGL initialization to improve LCP
 const LazyThreeJsCanvas = () => {
   const [shouldLoad, setShouldLoad] = useState(false);
 
   useEffect(() => {
-    // Defer Three.js loading until after initial paint
-    // Using requestIdleCallback for optimal performance
     if ('requestIdleCallback' in window) {
       const idleCallbackId = window.requestIdleCallback(() => {
         setShouldLoad(true);
-      }, { timeout: 1000 }); // Fallback to 1 second if idle not detected
+      }, { timeout: 1000 });
 
       return () => {
         if ('cancelIdleCallback' in window) {
@@ -57,10 +48,9 @@ const LazyThreeJsCanvas = () => {
         }
       };
     } else {
-      // Fallback for browsers without requestIdleCallback
       const timeoutId = setTimeout(() => {
         setShouldLoad(true);
-      }, 100); // Quick delay to allow initial UI render
+      }, 100);
 
       return () => clearTimeout(timeoutId);
     }

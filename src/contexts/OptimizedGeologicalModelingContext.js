@@ -28,7 +28,6 @@ export const GRID_RESOLUTIONS = {
   ULTRA_FINE: 'ultra_fine'
 };
 
-// Move constants outside component to prevent recreation
 const DEFAULT_SETTINGS = Object.freeze({
   interpolationMethod: INTERPOLATION_METHODS.IDW,
   gridResolution: GRID_RESOLUTIONS.AUTO,
@@ -42,8 +41,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   correlationTolerance: 1.64,
   geologicalConsistencyCheck: true,
   exportFormat: 'json',
-  
-  // Advanced interpolation settings
+
   krigingVariogramModel: 'exponential',
   krigingRange: 33,
   krigingNugget: 0.2,
@@ -53,13 +51,11 @@ const DEFAULT_SETTINGS = Object.freeze({
   trendSurfaceDegree: 1,
   idwPower: 2,
   idwAdaptivePower: true,
-  
-  // Quality assessment settings
+
   enableQualityWeighting: true,
   showInterpolationQuality: true,
-  
-  // Isolated material handling
-  isolatedMaterialHandling: 'interpolate', // Default to interpolate for continuous layers
+
+  isolatedMaterialHandling: 'interpolate',
   isolatedThreshold: 0.5,
   combinedPockets: true,
   pocketRadius: 0.8,
@@ -79,16 +75,13 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     hasLayerData: false,
     hasSpatialData: false
   });
-  
-  // Shared prototype state
+
   const [prototypeResult, setPrototypeResult] = useState(null);
   const [prototypeError, setPrototypeError] = useState(null);
-  
-  // Use refs for values that don't need to trigger re-renders
+
   const processingTimeoutRef = useRef(null);
   const lastValidationRef = useRef(null);
 
-  // Memoized capability checker
   const checkCapabilities = useCallback((boreholes = []) => {
     const boreholeCount = boreholes.length;
     const hasLayerData = boreholes.some(bh => bh.layers?.length > 0);
@@ -105,11 +98,9 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     };
   }, [modelingSettings.minimumBoreholes]);
 
-  // Optimized capability updater with memoization
   const updateCapabilities = useCallback((boreholes = []) => {
     const newCapabilities = checkCapabilities(boreholes);
-    
-    // Only update if capabilities actually changed
+
     setCapabilities(prev => {
       if (prev.canUseDataDriven === newCapabilities.canUseDataDriven &&
           prev.boreholeCount === newCapabilities.boreholeCount &&
@@ -120,15 +111,13 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
       return newCapabilities;
     });
 
-    // Auto-switch mode if needed
     if (modelingMode === MODELING_MODES.DATA_DRIVEN && !newCapabilities.canUseDataDriven) {
       setModelingMode(MODELING_MODES.CONCEPTUAL);
     }
   }, [checkCapabilities, modelingMode]);
 
-  // Optimized mode switcher
   const switchMode = useCallback((newMode) => {
-    if (newMode === modelingMode) return; // No-op if same mode
+    if (newMode === modelingMode) return;
     
     if (newMode === MODELING_MODES.DATA_DRIVEN && !capabilities.canUseDataDriven) {
       const missingRequirements = [];
@@ -148,13 +137,11 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     setModelingMode(newMode);
   }, [capabilities, modelingSettings.minimumBoreholes, modelingMode]);
 
-  // Optimized settings updater with shallow merge
   const updateSettings = useCallback((newSettings) => {
     if (typeof newSettings === 'function') {
       setModelingSettings(newSettings);
     } else {
       setModelingSettings(prev => {
-        // Check if settings actually changed
         const hasChanges = Object.keys(newSettings).some(
           key => prev[key] !== newSettings[key]
         );
@@ -163,12 +150,10 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     }
   }, []);
 
-  // Reset settings with memoized default
   const resetSettings = useCallback(() => {
     setModelingSettings(DEFAULT_SETTINGS);
   }, []);
 
-  // Memoized validation configuration
   const validateConfiguration = useCallback(() => {
     const errors = [];
     const warnings = [];
@@ -192,27 +177,23 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     }
 
     const result = { errors, warnings, isValid: errors.length === 0 };
-    
-    // Cache validation result
+
     lastValidationRef.current = result;
     return result;
   }, [modelingMode, capabilities, modelingSettings]);
 
-  // Optimized processing starter with debouncing
   const startProcessing = useCallback((status = 'Processing...') => {
-    // Clear any pending timeout
     if (processingTimeoutRef.current) {
       clearTimeout(processingTimeoutRef.current);
     }
     
     setIsProcessing(true);
     setProcessingStatus(status);
-    
-    // Auto-clear after timeout
+
     processingTimeoutRef.current = setTimeout(() => {
       setIsProcessing(false);
       setProcessingStatus(null);
-    }, 30000); // 30 second timeout
+    }, 30000);
   }, []);
 
   const stopProcessing = useCallback(() => {
@@ -224,7 +205,6 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     setProcessingStatus(null);
   }, []);
 
-  // Prototype state management
   const setPrototypeState = useCallback((result, error = null) => {
     setPrototypeResult(result);
     setPrototypeError(error);
@@ -235,32 +215,29 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     setPrototypeError(null);
   }, []);
 
-  // Process geological model (placeholder for actual processing)
   const processModel = useCallback(async (boreholes = [], options = {}) => {
     setIsProcessing(true);
     setProcessingStatus('Initializing...');
 
     try {
-      // Validate configuration first
       const validation = validateConfiguration();
       if (!validation.isValid) {
         throw new Error(`Configuration invalid: ${validation.errors.join(', ')}`);
       }
 
       setProcessingStatus('Processing geological data...');
-      
-      // Simulate processing time for now
+
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       setProcessingStatus('Generating 3D model...');
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       setProcessingStatus('Finalizing...');
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       setIsProcessing(false);
       setProcessingStatus('Completed successfully');
-      
+
       return {
         success: true,
         message: 'Model processed successfully',
@@ -271,12 +248,10 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
       setProcessingStatus(`Error: ${error.message}`);
       throw error;
     } finally {
-      // Clear status after 3 seconds
       setTimeout(() => setProcessingStatus(null), 3000);
     }
   }, [validateConfiguration]);
 
-  // Export model configuration
   const exportConfiguration = useCallback(() => {
     return {
       mode: modelingMode,
@@ -287,7 +262,6 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     };
   }, [modelingMode, modelingSettings, capabilities]);
 
-  // Import model configuration
   const importConfiguration = useCallback((config) => {
     if (!config || typeof config !== 'object') {
       throw new Error('Invalid configuration data');
@@ -304,7 +278,6 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     return true;
   }, []);
 
-  // Get mode description and requirements
   const getModeInfo = useCallback((mode = modelingMode) => {
     switch (mode) {
       case MODELING_MODES.CONCEPTUAL:
@@ -326,7 +299,6 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     }
   }, [modelingMode, modelingSettings.minimumBoreholes]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (processingTimeoutRef.current) {
@@ -335,9 +307,7 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     };
   }, []);
 
-  // Memoized context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
-    // State
     modelingMode,
     isProcessing,
     modelingSettings,
@@ -346,8 +316,7 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     capabilities,
     prototypeResult,
     prototypeError,
-    
-    // Actions
+
     switchMode,
     updateSettings,
     resetSettings,
@@ -364,8 +333,7 @@ export const GeologicalModelingProvider = React.memo(({ children }) => {
     exportConfiguration,
     importConfiguration,
     getModeInfo,
-    
-    // Constants
+
     MODELING_MODES,
     INTERPOLATION_METHODS,
     GRID_RESOLUTIONS

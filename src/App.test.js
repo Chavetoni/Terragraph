@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import { BoreholeProvider } from './contexts/BoreholeContext';
 import { UIProvider } from './contexts/UIContext';
 
-// Mock Three.js module completely to avoid WebGL issues
 jest.mock('three', () => {
   const mockCanvas = {
     width: 300,
@@ -70,7 +69,6 @@ jest.mock('three', () => {
   };
 });
 
-// Mock Three.js extensions
 jest.mock('three/examples/jsm/controls/OrbitControls', () => ({
   OrbitControls: jest.fn(() => ({
     enableDamping: true,
@@ -92,7 +90,6 @@ jest.mock('three/examples/jsm/renderers/CSS3DRenderer', () => ({
   }))
 }));
 
-// Mock all contexts that the components depend on
 jest.mock('./contexts/ThreeJsContext', () => {
   const mockContext = {
     scene: null,
@@ -130,7 +127,6 @@ jest.mock('./utils/threeJsHelpers', () => ({
   createGlassmorphismLabel: jest.fn()
 }));
 
-// Mock GeologicalModelingContext
 jest.mock('./contexts/GeologicalModelingContext', () => ({
   GeologicalModelingProvider: ({ children }) => children,
   useGeologicalModeling: () => ({
@@ -145,7 +141,6 @@ jest.mock('./contexts/GeologicalModelingContext', () => ({
   })
 }));
 
-// Mock BoreholeContext to avoid Three.js raycaster issues
 jest.mock('./contexts/BoreholeContext', () => ({
   BoreholeProvider: ({ children }) => children,
   useBoreholes: () => ({
@@ -157,7 +152,6 @@ jest.mock('./contexts/BoreholeContext', () => ({
   })
 }));
 
-// Test component rendering without Three.js dependency
 describe('App Component', () => {
   test('renders app layout components', () => {
     const MockApp = () => (

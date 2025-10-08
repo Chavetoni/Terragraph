@@ -45,32 +45,16 @@ export class BoreholeVisualizer {
     };
   }
 
-  /**
-   * Creates an enhanced borehole marker with improved visual design
-   * @param {Object} borehole - Borehole data
-   * @param {Object} layersContext - Context containing global layer information
-   * @param {boolean} showBoreholeStrata - Whether to show borehole strata
-   * @param {boolean} showWaterTable - Whether to show water table
-   * @param {Object} textureSettings - Global texture settings from DisplayOptionsContext
-   */
   createEnhancedBoreholeMarker(borehole, layersContext = null, showBoreholeStrata = true, showWaterTable = true, textureSettings = null) {
 
     const group = new Group();
     group.name = `borehole_${borehole.id}`;
     group.userData = { type: 'borehole', id: borehole.id };
-    
-    // Ensure borehole is visible on default layer
     group.layers.enable(0);
-
-    // Create compact pin marker
     const pinMarker = this.createCompactPinMarker(borehole);
     group.add(pinMarker);
-
-    // Create depth shaft visualization
     const depthShaft = this.createDepthShaft(borehole);
     group.add(depthShaft);
-
-    // Create borehole strata if borehole has layers (always create, but set visibility)
     if (borehole.layers && Array.isArray(borehole.layers) && borehole.layers.length > 0) {
       const strataGroup = this.createBoreholeStrata(borehole, layersContext || { layers: [] }, textureSettings);
       if (strataGroup && strataGroup.children.length > 0) {

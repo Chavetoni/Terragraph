@@ -19,10 +19,6 @@ export class TextureManager {
     this.initializePatternRenderers();
   }
 
-  /**
-   * Initialize pattern rendering functions for maximum performance
-   * @private
-   */
   initializePatternRenderers() {
     this.patternRenderers.set('clay', this.renderClayPattern.bind(this));
     this.patternRenderers.set('sand', this.renderSandPattern.bind(this));
@@ -43,13 +39,6 @@ export class TextureManager {
     this.patternRenderers.set('fill_pattern', this.renderFillPattern.bind(this));
   }
 
-  /**
-   * Create optimized soil texture with intelligent caching
-   * @param {string} materialType - Material type (CLAY, SAND, etc.)
-   * @param {string} baseColor - Base color hex string
-   * @param {Object} textureSettings - Global texture settings
-   * @returns {Texture} Optimized texture with caching
-   */
   createSoilTexture(materialType, baseColor, textureSettings = {}) {
     // Normalize inputs for consistent caching
     const normalizedType = this.normalizeMaterialType(materialType);
@@ -82,10 +71,6 @@ export class TextureManager {
     return texture;
   }
 
-  /**
-   * Generate texture with optimized canvas operations
-   * @private
-   */
   generateTexture(materialType, color, settings) {
     const canvas = this.getCanvas();
     const ctx = canvas.getContext('2d');
@@ -132,10 +117,6 @@ export class TextureManager {
     return texture;
   }
 
-  /**
-   * Calculate optimized pattern parameters with consistent scaling
-   * @private
-   */
   calculatePatternParameters(settings) {
     const intensity = Math.max(0.1, Math.min(1.0, settings.globalIntensity || 0.7));
     const scale = Math.max(0.5, Math.min(2.5, settings.patternScale || 1.0));
@@ -151,10 +132,6 @@ export class TextureManager {
     };
   }
 
-  /**
-   * Optimized clay pattern renderer with consistent scaling
-   * @private
-   */
   renderClayPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing } = params;
     
@@ -184,10 +161,6 @@ export class TextureManager {
     }
   }
 
-  /**
-   * Optimized sand pattern renderer with consistent scaling
-   * @private
-   */
   renderSandPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, elementSize, spacing } = params;
     
@@ -215,10 +188,6 @@ export class TextureManager {
     }
   }
 
-  /**
-   * Optimized gravel pattern renderer with consistent scaling
-   * @private
-   */
   renderGravelPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, elementSize, spacing } = params;
     
@@ -243,10 +212,6 @@ export class TextureManager {
     });
   }
 
-  /**
-   * Optimized rock pattern renderer with consistent scaling
-   * @private
-   */
   renderRockPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing } = params;
     
@@ -273,10 +238,6 @@ export class TextureManager {
     });
   }
 
-  /**
-   * Optimized silt pattern renderer with consistent scaling
-   * @private
-   */
   renderSiltPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing } = params;
     
@@ -306,10 +267,6 @@ export class TextureManager {
     }
   }
 
-  /**
-   * Optimized organic pattern renderer with consistent scaling
-   * @private
-   */
   renderOrganicPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, elementSize, spacing } = params;
     
@@ -340,10 +297,6 @@ export class TextureManager {
     }
   }
 
-  /**
-   * Optimized fill pattern renderer with consistent scaling
-   * @private
-   */
   renderFillPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing, elementSize } = params;
     
@@ -387,18 +340,14 @@ export class TextureManager {
     ctx.setLineDash([]);
   }
 
-  /**
-   * Generate deterministic pseudo-random particles for consistent patterns
-   * @private
-   */
   generateDeterministicParticles(count, spacing) {
     const particles = [];
-    const seed = 12345; // Fixed seed for consistency
+    const seed = 12345;
     
     for (let i = 0; i < count; i++) {
       const x = 20 + ((seed + i * 1234) % 88);
       const y = 20 + ((seed + i * 5678) % 88);
-      const size = 0.8 + ((seed + i * 9012) % 100) / 500; // 0.8 to 1.0
+      const size = 0.8 + ((seed + i * 9012) % 100) / 500;
       
       particles.push({ x, y, size });
     }
@@ -406,10 +355,6 @@ export class TextureManager {
     return particles;
   }
 
-  /**
-   * Generate deterministic rock formations
-   * @private
-   */
   generateDeterministicFormations(count, spacing) {
     const formations = [];
     const seed = 54321;
@@ -425,10 +370,6 @@ export class TextureManager {
     return formations;
   }
 
-  /**
-   * Generate deterministic organic shapes
-   * @private
-   */
   generateDeterministicOrganics(count, spacing) {
     const organics = [];
     const seed = 98765;
@@ -446,10 +387,6 @@ export class TextureManager {
     return organics;
   }
 
-  /**
-   * Generate deterministic angular fragments for fill
-   * @private
-   */
   generateDeterministicFragments(count, spacing) {
     const fragments = [];
     const seed = 13579;
@@ -458,7 +395,7 @@ export class TextureManager {
       const x = 15 + ((seed + i * 2468) % 98);
       const y = 15 + ((seed + i * 3579) % 98);
       const size = 0.6 + ((seed + i * 4680) % 100) / 250;
-      const sides = 3 + ((seed + i * 5791) % 4); // 3-6 sides
+      const sides = 3 + ((seed + i * 5791) % 4);
       
       fragments.push({ x, y, size, sides });
     }
@@ -466,10 +403,6 @@ export class TextureManager {
     return fragments;
   }
 
-  /**
-   * Get optimized canvas from pool
-   * @private
-   */
   getCanvas() {
     if (this.canvasPool.length > 0) {
       return this.canvasPool.pop();
@@ -481,51 +414,29 @@ export class TextureManager {
     return canvas;
   }
 
-  /**
-   * Return canvas to pool for reuse
-   * @private
-   */
   returnCanvas(canvas) {
-    if (this.canvasPool.length < 5) { // Limit pool size
+    if (this.canvasPool.length < 5) {
       this.canvasPool.push(canvas);
     }
   }
 
-  /**
-   * Normalize material type for consistent processing
-   * @private
-   */
   normalizeMaterialType(materialType) {
     if (!materialType) return 'clay';
     return materialType.toString().toLowerCase().trim();
   }
 
-  /**
-   * Normalize color for consistent caching
-   * @private
-   */
   normalizeColor(color) {
     if (!color) return '#888888';
-    
-    // Ensure we have a string to work with
     let colorStr = color;
-    
-    // Handle Color objects
     if (color && typeof color === 'object' && typeof color.getHexString === 'function') {
       colorStr = `#${color.getHexString()}`;
     }
-    
-    // Handle other object types by converting to string
     if (typeof colorStr !== 'string') {
       colorStr = String(colorStr);
     }
-    
-    // Convert to consistent hex format
     if (colorStr.startsWith('#')) {
       return colorStr.toLowerCase();
     }
-    
-    // Convert rgb/rgba to hex
     const match = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
     if (match) {
       const r = parseInt(match[1]).toString(16).padStart(2, '0');
@@ -533,8 +444,6 @@ export class TextureManager {
       const b = parseInt(match[3]).toString(16).padStart(2, '0');
       return `#${r}${g}${b}`;
     }
-    
-    // Handle named colors or other formats - fallback to gray
     if (colorStr === 'default' || colorStr.length === 0) {
       return '#888888';
     }
@@ -542,18 +451,12 @@ export class TextureManager {
     return colorStr.toLowerCase();
   }
 
-  /**
-   * Hash settings for cache key generation
-   * @private
-   */
   hashSettings(settings) {
     const key = JSON.stringify({
       intensity: Math.round((settings.globalIntensity || 0.7) * 100),
       scale: Math.round((settings.patternScale || 1.0) * 100),
       enabled: settings.enabled !== false
     });
-    
-    // Simple hash function
     let hash = 0;
     for (let i = 0; i < key.length; i++) {
       hash = ((hash << 5) - hash + key.charCodeAt(i)) & 0xffffffff;
@@ -561,12 +464,7 @@ export class TextureManager {
     return hash.toString(36);
   }
 
-  /**
-   * Get pattern type from material type with USCS mapping
-   * @private
-   */
   getPatternType(materialType) {
-    // Try to get USCS pattern first
     try {
       const materialProps = getMaterialProperties(materialType);
       if (materialProps && materialProps.pattern) {
@@ -592,10 +490,7 @@ export class TextureManager {
         return patternMap[materialProps.pattern] || materialType;
       }
     } catch (error) {
-      // Fall back to material type
     }
-    
-    // Direct material type mapping
     const typeMap = {
       'clay': 'clay',
       'sand': 'sand',
@@ -607,18 +502,13 @@ export class TextureManager {
       'fill': 'fill',
       'topsoil': 'organic',
       'peat': 'organic',
-      'unknown': 'clay' // Add explicit mapping for unknown
+      'unknown': 'clay'
     };
     
     return typeMap[materialType] || 'clay';
   }
 
-  /**
-   * Evict least recently used texture to manage memory
-   * @private
-   */
   evictLeastRecentlyUsed() {
-    // Simple LRU implementation - remove oldest texture
     const firstKey = this.textureCache.keys().next().value;
     if (firstKey) {
       const texture = this.textureCache.get(firstKey);
@@ -627,25 +517,16 @@ export class TextureManager {
     }
   }
 
-  /**
-   * Get cache statistics for monitoring
-   */
   getCacheStats() {
     return { ...this.cacheStats };
   }
 
-  /**
-   * Clear all cached textures and reset
-   */
   clearCache() {
     this.textureCache.forEach(texture => texture.dispose());
     this.textureCache.clear();
     this.cacheStats = { hits: 0, misses: 0, size: 0 };
   }
 
-  /**
-   * Dispose of all resources
-   */
   dispose() {
     this.clearCache();
     this.canvasPool = [];
