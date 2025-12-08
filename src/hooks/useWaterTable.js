@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useMemo } from 'react';
 import { useDisplayOptions } from '../contexts/DisplayOptionsContext';
-import { useBoreholeData } from './useOptimizedBorehole';
+import { useBoreholes } from '../contexts/BoreholeContext';
 import { useThreeJs } from '../contexts/ThreeJsContext';
 import { Logger } from '../utils/Logger.js';
 
@@ -8,15 +8,15 @@ const logger = new Logger().withContext('useWaterTable');
 
 export function useWaterTable() {
   const { showWaterTable } = useDisplayOptions();
-  const { boreholes } = useBoreholeData();
+  const { boreholes } = useBoreholes();
   const { scene } = useThreeJs();
 
   /**
    * Get water table data from boreholes
    */
   const waterTableData = useMemo(() => {
-    const waterTableBoreholes = boreholes.filter(bh => 
-      bh.waterTableEncountered && 
+    const waterTableBoreholes = boreholes.filter(bh =>
+      bh.waterTableEncountered &&
       (bh.waterTableDepth !== null || bh.waterTableElevation !== null)
     );
 
@@ -59,19 +59,15 @@ export function useWaterTable() {
     scene.traverse((object) => {
       if (object.userData?.type === 'water_table') {
         markersFound++;
-        
+
         const shouldBeVisible = showWaterTable && waterTableData.enabled;
-        
+
         if (object.visible !== shouldBeVisible) {
           object.visible = shouldBeVisible;
           markersUpdated++;
         }
       }
     });
-
-    if (markersUpdated > 0) {
-
-    }
   }, [scene, showWaterTable, waterTableData.enabled]);
 
   /**
@@ -102,7 +98,7 @@ export function useWaterTable() {
               }
               child.material.needsUpdate = true;
             }
-            
+
             if (child.name?.includes('level_line') || child.name?.includes('border')) {
               child.visible = showContours;
             }
@@ -113,10 +109,6 @@ export function useWaterTable() {
         markersUpdated++;
       }
     });
-
-    if (markersUpdated > 0) {
-
-    }
   }, [scene, showWaterTable]);
 
   /**
@@ -162,7 +154,7 @@ export function useWaterTable() {
    */
   const getInterpolationRecommendations = useCallback(() => {
     const { dataPoints, statistics } = waterTableData;
-    
+
     if (!statistics) {
       return {
         canInterpolate: false,

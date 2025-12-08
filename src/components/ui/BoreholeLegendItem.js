@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { useBoreholes } from '../../contexts/BoreholeContext';
 import { metersToFeet, feetToMeters, formatDepthMetersToFeet } from '../../utils/unitConverter.js';
 import { Logger } from '../../utils/Logger.js';
+import { handleWholeUnitScroll, handleWholeUnitKeyboard } from '../../utils/numericInputHelpers';
+import './LegendItem.css';
 
 const logger = new Logger().withContext('BoreholeLegendItem');
 
@@ -80,8 +82,10 @@ const BoreholeLegendItem = ({ borehole, index }) => {
             type="number"
             value={metersToFeet(editDepth).toFixed(1)}
             onChange={(e) => setEditDepth(feetToMeters(parseFloat(e.target.value) || 0))}
+            onWheel={(e) => handleWholeUnitScroll(e, (val) => setEditDepth(feetToMeters(val)), { min: 0.1 })}
+            onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => setEditDepth(feetToMeters(val)), { min: 0.1 })}
             className="legend-edit-input"
-            step="0.1"
+            step="any"
             min="0.1"
           />
         </div>

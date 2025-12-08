@@ -3,6 +3,7 @@ import { useBoreholes } from '../../contexts/BoreholeContext';
 import { BOREHOLE_TYPES } from '../../models/Borehole';
 import { formatDepthMetersToFeet, formatDiameterFeetToInches } from '../../utils/unitConverter.js';
 import { Logger } from '../../utils/Logger.js';
+import './BoreholeListItem.css';
 
 const logger = new Logger().withContext('BoreholeListItem');
 
@@ -97,45 +98,44 @@ const BoreholeListItem = ({
 
   return (
     <div
-      className={`borehole-list-item p-3 rounded-lg border transition-all duration-200 ${
-        isDeleting 
-          ? 'deleting border-red-300 bg-red-50 opacity-60' 
-          : isSelected 
-            ? 'selected border-blue-500 bg-blue-50' 
-            : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
-      }`}
-      style={{ 
-        cursor: isDeleting ? 'not-allowed' : 'pointer',
-        pointerEvents: isDeleting ? 'none' : 'auto'
-      }}
+      className={`borehole-list-item ${isDeleting ? 'deleting' : ''} ${isSelected ? 'selected' : ''}`}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-semibold text-sm">{borehole.name}</h4>
-            <div className="borehole-type-indicator">
-              <div 
-                className="borehole-type-dot" 
-                style={{ backgroundColor: borehole.color || BOREHOLE_TYPES[borehole.type]?.color || BOREHOLE_TYPES.OTHER.color }}
-              />
-              {BOREHOLE_TYPES[borehole.type]?.name || 'Custom'}
+      <div className="borehole-header-row">
+        <div className="borehole-info-section">
+          <h4 className="borehole-name">
+            {borehole.name}
+          </h4>
+          <div className="borehole-type-indicator">
+            <div
+              className="borehole-type-dot"
+              style={{ backgroundColor: borehole.color || BOREHOLE_TYPES[borehole.type]?.color || BOREHOLE_TYPES.OTHER.color }}
+            />
+            {BOREHOLE_TYPES[borehole.type]?.name || 'Custom'}
+          </div>
+          <div className="borehole-metadata">
+            <div className="borehole-metadata-item">
+              <span className="borehole-metadata-label">Depth:</span>
+              <span className="borehole-metadata-value">{formatDepthMetersToFeet(borehole.depth)}'</span>
+            </div>
+            <div className="borehole-metadata-item">
+              <span className="borehole-metadata-label">Position:</span>
+              <span className="borehole-metadata-value">({borehole.x.toFixed(1)}, {borehole.z.toFixed(1)})</span>
+            </div>
+            <div className="borehole-metadata-item">
+              <span className="borehole-metadata-label">Diameter:</span>
+              <span className="borehole-metadata-value">{formatDiameterFeetToInches(borehole.diameter)}"</span>
             </div>
           </div>
-          <div className="text-xs text-gray-600 mt-1">
-            <div>Depth: {formatDepthMetersToFeet(borehole.depth)}'</div>
-            <div>Position: ({borehole.x.toFixed(1)}, {borehole.z.toFixed(1)})</div>
-            <div>Diameter: {formatDiameterFeetToInches(borehole.diameter)}"</div>
-          </div>
         </div>
-        
-        <div className="borehole-actions flex space-x-2">
+
+        <div className="borehole-actions">
           <button
             onClick={handleToggleVisibility}
             disabled={!showGlobalVisible}
-            className={`visibility-icon-button ${
+            className={`borehole-action-btn visibility-icon-button ${
               !showGlobalVisible
                 ? 'disabled'
                 : isIndividualVisible
@@ -150,20 +150,23 @@ const BoreholeListItem = ({
                   : 'Show borehole'
             }
           >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isIndividualVisible ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-              )}
-            </svg>
+            {isIndividualVisible ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M2 12c1.5-4 5-7 10-7s8.5 3 10 7c-1.5 4-5 7-10 7s-8.5-3-10-7z"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 3l18 18M10.5 10.5a3 3 0 004 4M7 7a8 8 0 0110 10M2 12c1.5-4 5-7 10-7m8 2a13 13 0 012 5c-1.5 4-5 7-10 7"/>
+              </svg>
+            )}
           </button>
-          
+
           {borehole.layers && borehole.layers.length > 0 && (
             <button
               onClick={handleToggleStrataVisibility}
               disabled={!showBoreholeStrata || !showGlobalVisible || !isIndividualVisible}
-              className={`strata-icon-button ${
+              className={`borehole-action-btn strata-icon-button ${
                 !showBoreholeStrata || !showGlobalVisible || !isIndividualVisible
                   ? 'disabled'
                   : isStrataVisible
@@ -180,47 +183,34 @@ const BoreholeListItem = ({
                       : 'Show strata'
               }
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isStrataVisible ? (
-                  // Filled layers icon when visible
-                  <g>
-                    <rect x="5" y="4" width="14" height="4" strokeWidth={2} fill="currentColor" opacity="0.3" />
-                    <rect x="5" y="10" width="14" height="4" strokeWidth={2} fill="currentColor" opacity="0.5" />
-                    <rect x="5" y="16" width="14" height="4" strokeWidth={2} fill="currentColor" opacity="0.7" />
-                  </g>
-                ) : (
-                  // Outline layers icon when hidden
-                  <g>
-                    <rect x="5" y="4" width="14" height="4" strokeWidth={2} />
-                    <rect x="5" y="10" width="14" height="4" strokeWidth={2} />
-                    <rect x="5" y="16" width="14" height="4" strokeWidth={2} />
-                  </g>
-                )}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="4" y1="6" x2="20" y2="6"/>
+                <line x1="4" y1="12" x2="20" y2="12"/>
+                <line x1="4" y1="18" x2="20" y2="18"/>
               </svg>
             </button>
           )}
-          
-          
+
           {onEdit && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(borehole);
               }}
-              className="edit-button"
+              className="borehole-action-btn edit-button"
               title="Edit borehole"
             >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3l4 4L7 21H3v-4L17 3z"/>
               </svg>
             </button>
           )}
-          
+
           {onDelete && (
             <button
               onClick={handleDelete}
               disabled={isDeleting}
-              className={`delete-button ${isDeleting ? 'deleting' : ''}`}
+              className={`borehole-action-btn delete-button ${isDeleting ? 'deleting' : ''}`}
               title={isDeleting ? "Deleting..." : "Delete borehole"}
             >
               {isDeleting ? '⌛' : '×'}
@@ -228,15 +218,7 @@ const BoreholeListItem = ({
           )}
         </div>
       </div>
-      
-      {isSelected && (
-        <div className="mt-2 pt-2 border-t border-blue-200">
-          <div className="text-xs text-blue-700">
-            <div className="font-medium">Selected</div>
-            <div>View enhanced visualization in 3D scene</div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

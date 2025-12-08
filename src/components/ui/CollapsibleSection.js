@@ -1,5 +1,6 @@
 // src/components/ui/CollapsibleSection.js
 import React from 'react';
+import './CollapsibleSection.css';
 
 const CollapsibleSection = ({ title, sectionKey, children, isOpen, onToggle }) => (
   <div style={{ marginBottom: '1px' }}>

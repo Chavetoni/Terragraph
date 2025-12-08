@@ -321,6 +321,187 @@ export class AdvancedInterpolationEngine {
     return matrix[0].map((_, i) => matrix.map(row => row[i]));
   }
 
+  /**
+   * Calculate directional variogram for anisotropy detection
+   * Computes semi-variance in a specific direction
+   *
+   * @param {Array} boreholes - Array of boreholes with layer data
+   * @param {string} layerName - Name of layer to analyze
+   * @param {number} angle - Direction angle in degrees (0=East, 90=North)
+   * @param {Object} options - Options {tolerance, maxDistance}
+   * @returns {Array} Variogram data [{distance, semivariance, pairCount}]
+   */
+  static calculateDirectionalVariogram(boreholes, layerName, angle, options = {}) {
+    const {
+      tolerance = 22.5,  // Angular tolerance in degrees (±22.5° = 45° window)
+      maxDistance = 200,  // Maximum distance to consider (feet)
+      lagSize = 20,      // Distance bin size (feet)
+      numLags = 10       // Number of lag bins
+    } = options;
+
+    // Extract layer data from boreholes
+    const points = [];
+    for (const bh of boreholes) {
+      const layer = bh.layers?.find(l => l.material === layerName);
+      if (!layer) continue;
+
+      const value = layer.from !== undefined ? -layer.from : (layer.depthFrom !== undefined ? -layer.depthFrom : 0);
+      points.push({
+        x: bh.x,
+        y: bh.z, // Use z for N-S coordinate
+        value
+      });
+    }
+
+    if (points.length < 3) {
+      return []; // Need at least 3 points for meaningful variogram
+    }
+
+    // Initialize lag bins
+    const lags = Array(numLags).fill(null).map((_, i) => ({
+      distance: (i + 0.5) * lagSize,
+      semivariance: 0,
+      pairCount: 0
+    }));
+
+    // Convert angle to radians
+    const angleRad = angle * Math.PI / 180;
+    const toleranceRad = tolerance * Math.PI / 180;
+
+    // Calculate semi-variances for point pairs
+    for (let i = 0; i < points.length; i++) {
+      for (let j = i + 1; j < points.length; j++) {
+        const dx = points[j].x - points[i].x;
+        const dy = points[j].y - points[i].y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance === 0 || distance > maxDistance) continue;
+
+        // Calculate bearing angle
+        const bearing = Math.atan2(dy, dx);
+        let angleDiff = Math.abs(bearing - angleRad);
+
+        // Normalize angle difference to [-π, π]
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        angleDiff = Math.abs(angleDiff);
+
+        // Check if within angular tolerance
+        if (angleDiff <= toleranceRad || angleDiff >= (Math.PI - toleranceRad)) {
+          // Determine which lag bin
+          const lagIndex = Math.floor(distance / lagSize);
+          if (lagIndex < numLags) {
+            const semiVar = Math.pow(points[j].value - points[i].value, 2) / 2;
+            lags[lagIndex].semivariance += semiVar;
+            lags[lagIndex].pairCount++;
+          }
+        }
+      }
+    }
+
+    // Average semi-variances
+    return lags
+      .filter(lag => lag.pairCount > 0)
+      .map(lag => ({
+        distance: lag.distance,
+        semivariance: lag.semivariance / lag.pairCount,
+        pairCount: lag.pairCount
+      }));
+  }
+
+  /**
+   * Detect anisotropy (directional dependence) in geological data
+   * Analyzes variability in multiple directions to identify directional trends
+   *
+   * @param {Array} boreholes - Array of boreholes with layer data
+   * @param {string} layerName - Name of layer to analyze
+   * @param {Object} options - Detection options
+   * @returns {Object|null} Anisotropy parameters {detected, angle, ratio, confidence} or null
+   */
+  static detectAnisotropy(boreholes, layerName, options = {}) {
+    const {
+      angles = [0, 45, 90, 135],  // Directions to test (degrees)
+      minRatio = 1.5,              // Minimum ratio to consider anisotropic
+      minConfidence = 0.6          // Minimum confidence threshold
+    } = options;
+
+    if (boreholes.length < 5) {
+      return null; // Need at least 5 boreholes for anisotropy detection
+    }
+
+    // Calculate variograms in each direction
+    const directionalVariograms = {};
+    for (const angle of angles) {
+      const variogram = this.calculateDirectionalVariogram(boreholes, layerName, angle, options);
+      if (variogram.length > 0) {
+        directionalVariograms[angle] = variogram;
+      }
+    }
+
+    if (Object.keys(directionalVariograms).length < 3) {
+      return null; // Need at least 3 directions for comparison
+    }
+
+    // Calculate average semivariance for each direction (use first 3 lags)
+    const directionalAverages = {};
+    for (const [angle, variogram] of Object.entries(directionalVariograms)) {
+      const firstLags = variogram.slice(0, 3);
+      const avgSemivar = firstLags.reduce((sum, lag) => sum + lag.semivariance, 0) / firstLags.length;
+      const totalPairs = firstLags.reduce((sum, lag) => sum + lag.pairCount, 0);
+      directionalAverages[angle] = { avgSemivar, totalPairs };
+    }
+
+    // Find directions with minimum and maximum semivariance
+    let minAngle = null, minSemivar = Infinity;
+    let maxAngle = null, maxSemivar = -Infinity;
+
+    for (const [angle, data] of Object.entries(directionalAverages)) {
+      if (data.avgSemivar < minSemivar) {
+        minSemivar = data.avgSemivar;
+        minAngle = parseInt(angle);
+      }
+      if (data.avgSemivar > maxSemivar) {
+        maxSemivar = data.avgSemivar;
+        maxAngle = parseInt(angle);
+      }
+    }
+
+    // Calculate anisotropy ratio
+    const ratio = Math.abs(minSemivar) < EPSILON ? 1 : maxSemivar / minSemivar;
+
+    // Calculate confidence based on data quality
+    const minPairs = Math.min(...Object.values(directionalAverages).map(d => d.totalPairs));
+    const pairConfidence = Math.min(minPairs / 10, 1.0); // More pairs = higher confidence
+    const ratioConfidence = Math.min((ratio - 1) / 2, 1.0); // Higher ratio = stronger signal
+    const confidence = (pairConfidence + ratioConfidence) / 2;
+
+    // Determine if anisotropy is significant
+    const detected = ratio >= minRatio && confidence >= minConfidence;
+
+    if (!detected) {
+      return {
+        detected: false,
+        angle: null,
+        ratio: 1.0,
+        confidence: 0,
+        message: `Weak or no anisotropy detected (ratio: ${ratio.toFixed(2)}, confidence: ${confidence.toFixed(2)})`
+      };
+    }
+
+    // Major axis (direction of maximum continuity) is perpendicular to max semivariance
+    const majorAxisAngle = (maxAngle + 90) % 180;
+
+    return {
+      detected: true,
+      angle: majorAxisAngle,  // Direction of maximum continuity
+      ratio: Math.sqrt(ratio), // Use sqrt for distance transformation
+      confidence,
+      minDirection: minAngle,
+      maxDirection: maxAngle,
+      directionalData: directionalAverages,
+      message: `Anisotropy detected: ${majorAxisAngle}° direction, ratio ${ratio.toFixed(2)}`
+    };
+  }
+
 }
 
 export default AdvancedInterpolationEngine;

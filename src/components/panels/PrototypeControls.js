@@ -1,15 +1,27 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useVolumetricGeology } from '../../hooks/useVolumetricGeology';
-import { useGeologicalModeling } from '../../contexts/OptimizedGeologicalModelingContext';
+import { useGeologicalModeling, INTERPOLATION_STYLE_MODES } from '../../contexts/GeologicalModelingContext';
 import { useBoreholes } from '../../contexts/BoreholeContext';
 import VolumetricSettings from './VolumetricSettings';
+import CollapsibleSection from '../ui/CollapsibleSection';
 import { Logger } from '../../utils/Logger.js';
 import './PrototypeControls.css';
 
 const logger = new Logger().withContext('PrototypeControls');
 
 export function PrototypeControls() {
-  const { modelingMode, switchMode, prototypeResult, prototypeError } = useGeologicalModeling();
+  const {
+    modelingMode,
+    switchMode,
+    prototypeResult,
+    prototypeError,
+    // Interpolation style mode
+    interpolationStyleMode,
+    setInterpolationStyleMode,
+    // Advanced interpolation mode
+    useAdvancedInterpolation,
+    setUseAdvancedInterpolation
+  } = useGeologicalModeling();
   const { boreholes } = useBoreholes();
   const {
     isProcessing,
@@ -20,20 +32,34 @@ export function PrototypeControls() {
     validateVolumetricData
   } = useVolumetricGeology();
 
+  // State for collapsible sections
+  const [openSections, setOpenSections] = useState({
+    interpolationSettings: false // Collapsed by default
+  });
+
+  const handleSectionToggle = (sectionKey) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
+
   // Calculate validation status
   const validation = useMemo(() => {
     const result = validateVolumetricData(boreholes);
+
     return {
       canGenerate: result.isValid,
-      message: result.isValid 
+      message: result.isValid
         ? `Ready to generate model (${result.stats.boreholeCount} boreholes, ${result.stats.uniqueMaterials} materials)`
-        : result.errors[0] || 'Cannot generate model'
+        : result.errors[0] || 'Cannot generate model',
+      warnings: result.warnings || []
     };
   }, [boreholes, validateVolumetricData]);
 
 
   const handleGenerateClick = async () => {
-    
+
     // Always try to switch to data-driven mode first (idempotent if already data-driven)
     try {
       await switchMode('data-driven');
@@ -53,69 +79,112 @@ export function PrototypeControls() {
 
   return (
     <div className="prototype-controls">
-      <div className="control-section">
-        <div className="section-header">
-          <h3>Geological Modeling Prototype</h3>
-         
+      {/* Mode and Validation Status */}
+      <div className="status-section">
+        <div className="mode-display">
+          <span className="label">Mode:</span>
+          <span className={`mode-badge ${modelingMode === 'data-driven' ? 'active' : 'inactive'}`}>
+            {modelingMode}
+          </span>
         </div>
 
+        <ValidationStatus validation={validation} />
+      </div>
 
-        {/* Mode and Validation Status */}
-        <div className="status-section">
-          <div className="mode-display">
-            <span className="label">Mode:</span>
-            <span className={`mode-badge ${modelingMode === 'data-driven' ? 'active' : 'inactive'}`}>
-              {modelingMode}
-            </span>
+      {/* Interpolation Settings - Collapsible */}
+      <CollapsibleSection
+        title="⚙️ Interpolation Settings"
+        sectionKey="interpolationSettings"
+        isOpen={openSections.interpolationSettings}
+        onToggle={handleSectionToggle}
+      >
+        <div className="interpolation-settings-content">
+          {/* Interpolation Style Toggle */}
+          <div className="interpolation-style-section-compact">
+            <label className="style-label">Style</label>
+            <select
+              value={interpolationStyleMode}
+              onChange={(e) => setInterpolationStyleMode(e.target.value)}
+              className="style-select"
+              title="Natural mode allows realistic geological dips and variation. Conservative mode produces flatter, smoother surfaces."
+            >
+              <option value={INTERPOLATION_STYLE_MODES.NATURAL}>
+                Natural (realistic dips)
+              </option>
+              <option value={INTERPOLATION_STYLE_MODES.CONSERVATIVE}>
+                Conservative (flatter surfaces)
+              </option>
+            </select>
+            <small className="style-hint">
+              {interpolationStyleMode === INTERPOLATION_STYLE_MODES.NATURAL
+                ? 'Allows steeper slopes and less smoothing'
+                : 'Applies more smoothing and limits slope angles'}
+            </small>
           </div>
 
-          <ValidationStatus validation={validation} />
+          {/* Advanced Interpolation Toggle */}
+          <div className="advanced-interpolation-section-compact">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={useAdvancedInterpolation}
+                onChange={(e) => setUseAdvancedInterpolation(e.target.checked)}
+                className="toggle-checkbox"
+              />
+              <span className="toggle-text">Advanced Mode</span>
+            </label>
+            <small className="toggle-hint">
+              {useAdvancedInterpolation
+                ? 'Enabled: horizon preprocessing + anisotropic distance (best for 10+ boreholes)'
+                : 'Disabled: simpler IDW (recommended for small datasets)'}
+            </small>
+          </div>
         </div>
+      </CollapsibleSection>
 
-        {/* Main Controls */}
-        <div className="control-actions">
-          <button
-            onClick={handleGenerateClick}
-            disabled={isProcessing || (!validation.canGenerate && modelingMode === 'data-driven')}
-            className={`generate-button ${validation.canGenerate ? 'ready' : 'disabled'}`}
-          >
-            {isProcessing ? (
-              <>
-                <span className="loading-spinner"></span>
-                Processing...
-              </>
-            ) : (
-              'Generate Volumetric Model'
-            )}
-          </button>
-
-          {(prototypeResult || prototypeError) && (
-            <button onClick={handleClearClick} className="clear-button">
-              Clear Model
-            </button>
+      {/* Main Controls */}
+      <div className="control-actions">
+        <button
+          onClick={handleGenerateClick}
+          disabled={isProcessing || (!validation.canGenerate && modelingMode === 'data-driven')}
+          className={`generate-button ${validation.canGenerate ? 'ready' : 'disabled'}`}
+        >
+          {isProcessing ? (
+            <>
+              <span className="loading-spinner"></span>
+              Processing...
+            </>
+          ) : (
+            'Generate Volumetric Model'
           )}
-        </div>
+        </button>
 
-        {/* Progress Display */}
-        {isProcessing && progress && (
-          <ProgressDisplay progress={progress} />
-        )}
-
-        {/* Error Display */}
-        {(error || prototypeError) && (
-          <ErrorDisplay error={error || { message: prototypeError }} onClear={handleClearClick} />
-        )}
-
-        {/* Result Display */}
-        {prototypeResult && prototypeResult.type === 'volumetric' && (
-          <VolumetricResultDisplay result={prototypeResult} />
-        )}
-
-        {/* Volumetric Settings */}
-        {modelingMode === 'data-driven' && (
-          <VolumetricSettings />
+        {(prototypeResult || prototypeError) && (
+          <button onClick={handleClearClick} className="clear-button">
+            Clear Model
+          </button>
         )}
       </div>
+
+      {/* Progress Display */}
+      {isProcessing && progress && (
+        <ProgressDisplay progress={progress} />
+      )}
+
+      {/* Error Display */}
+      {(error || prototypeError) && (
+        <ErrorDisplay error={error || { message: prototypeError }} onClear={handleClearClick} />
+      )}
+
+      {/* Result Display */}
+      {prototypeResult && prototypeResult.type === 'volumetric' && (
+        <VolumetricResultDisplay result={prototypeResult} />
+      )}
+
+      {/* Volumetric Settings */}
+      {modelingMode === 'data-driven' && (
+        <VolumetricSettings />
+      )}
     </div>
   );
 }
@@ -127,14 +196,28 @@ function ValidationStatus({ validation }) {
   if (!validation) return null;
 
   return (
-    <div className={`validation-status ${validation.canGenerate ? 'valid' : 'invalid'}`}>
-      <div className="status-icon">
-        {validation.canGenerate ? '✓' : '⚠️'}
+    <>
+      <div className={`validation-status ${validation.canGenerate ? 'valid' : 'invalid'}`}>
+        <div className="status-icon">
+          {validation.canGenerate ? '✓' : '⚠️'}
+        </div>
+        <div className="status-message">
+          {validation.message}
+        </div>
       </div>
-      <div className="status-message">
-        {validation.message}
-      </div>
-    </div>
+
+      {/* Display warnings for sparse configurations */}
+      {validation.warnings && validation.warnings.length > 0 && (
+        <div className="validation-warnings">
+          {validation.warnings.map((warning, index) => (
+            <div key={index} className="warning-item">
+              <span className="warning-icon">⚠️</span>
+              <span className="warning-text">{warning}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -145,7 +228,7 @@ function ProgressDisplay({ progress }) {
   const steps = [
     'Validating Data',
     'Processing Geometry',
-    'Calculating Interpolations', 
+    'Calculating Interpolations',
     'Generating Mesh',
     'Finalizing Model'
   ];
@@ -158,7 +241,7 @@ function ProgressDisplay({ progress }) {
       'Generating volumetric mesh': 3,
       'Finalizing model': 4
     };
-    
+
     // Find matching step or default to middle
     for (const [key, index] of Object.entries(stepMapping)) {
       if (stepText.toLowerCase().includes(key.toLowerCase().split(' ')[0])) {
@@ -192,12 +275,11 @@ function ProgressDisplay({ progress }) {
       {/* Step Indicators */}
       <div className="progress-steps">
         {steps.map((step, index) => (
-          <div 
+          <div
             key={index}
-            className={`progress-step ${
-              index < currentStepIndex ? 'completed' : 
+            className={`progress-step ${index < currentStepIndex ? 'completed' :
               index === currentStepIndex ? 'active' : 'pending'
-            }`}
+              }`}
           >
             <div className="step-indicator">
               {index < currentStepIndex ? (
@@ -212,16 +294,16 @@ function ProgressDisplay({ progress }) {
           </div>
         ))}
       </div>
-      
+
       {progress.percent !== undefined && (
         <div className="progress-bar">
-          <div 
-            className="progress-fill" 
+          <div
+            className="progress-fill"
             style={{ width: `${progress.percent}%` }}
           />
           <div className="progress-markers">
             {[20, 40, 60, 80].map(marker => (
-              <div 
+              <div
                 key={marker}
                 className="progress-marker"
                 style={{ left: `${marker}%` }}
@@ -255,14 +337,14 @@ function ProgressDisplay({ progress }) {
  */
 function getEstimatedTime(percent) {
   if (!percent || percent < 5) return null;
-  
+
   const totalEstimatedSeconds = 45; // Base estimation
   const remainingPercent = 100 - percent;
   const remainingSeconds = Math.round((remainingPercent / 100) * totalEstimatedSeconds);
-  
+
   if (remainingSeconds < 10) return '< 10s';
   if (remainingSeconds < 60) return `${remainingSeconds}s`;
-  
+
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
   return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
@@ -278,10 +360,10 @@ function ErrorDisplay({ error, onClear }) {
         <div className="error-icon">❌</div>
         <h4>Processing Error</h4>
       </div>
-      
+
       <div className="error-content">
         <p className="error-message">{error.message}</p>
-        
+
         {error.timestamp && (
           <div className="error-timestamp">
             {new Date(error.timestamp).toLocaleString()}
@@ -346,6 +428,71 @@ function VolumetricResultDisplay({ result }) {
           </div>
         </div>
       </div>
+
+      {/* NEW: Validation Statistics (if cross-validation was enabled) */}
+      {result.validationStats && result.validationStats.valid && (
+        <div className="validation-stats-section" style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          backgroundColor: '#f0f8ff',
+          borderLeft: '4px solid #4CAF50',
+          borderRadius: '4px'
+        }}>
+          <h5 style={{ margin: '0 0 0.5rem 0', color: '#2196F3', fontSize: '0.9rem' }}>
+            📊 Model Accuracy (Cross-Validation)
+          </h5>
+          <div className="tech-stat-grid">
+            <div className="tech-stat">
+              <span className="tech-label">Mean Error:</span>
+              <span className="tech-value">±{result.validationStats.overallMeanError.toFixed(2)} ft</span>
+            </div>
+            <div className="tech-stat">
+              <span className="tech-label">Max Error:</span>
+              <span className="tech-value">±{result.validationStats.overallMaxError.toFixed(2)} ft</span>
+            </div>
+            <div className="tech-stat">
+              <span className="tech-label">RMSE:</span>
+              <span className="tech-value">{result.validationStats.overallRMSE.toFixed(2)} ft</span>
+            </div>
+            <div className="tech-stat">
+              <span className="tech-label">Predictions:</span>
+              <span className="tech-value">{result.validationStats.totalPredictions}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Anisotropy Detection Results (if enabled and detected) */}
+      {result.anisotropyInfo && result.anisotropyInfo.detected && (
+        <div className="anisotropy-info-section" style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          backgroundColor: '#fff3e0',
+          borderLeft: '4px solid #FF9800',
+          borderRadius: '4px'
+        }}>
+          <h5 style={{ margin: '0 0 0.5rem 0', color: '#F57C00', fontSize: '0.9rem' }}>
+            🧭 Directional Geology Detected
+          </h5>
+          <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', color: '#555' }}>
+            {result.anisotropyInfo.message}
+          </p>
+          <div className="tech-stat-grid">
+            <div className="tech-stat">
+              <span className="tech-label">Direction:</span>
+              <span className="tech-value">{result.anisotropyInfo.angle}°</span>
+            </div>
+            <div className="tech-stat">
+              <span className="tech-label">Ratio:</span>
+              <span className="tech-value">{result.anisotropyInfo.ratio.toFixed(2)}</span>
+            </div>
+            <div className="tech-stat">
+              <span className="tech-label">Confidence:</span>
+              <span className="tech-value">{(result.anisotropyInfo.confidence * 100).toFixed(0)}%</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Material Details */}
       <div className="layer-details">

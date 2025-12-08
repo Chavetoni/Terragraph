@@ -46,7 +46,13 @@ export const DisplayOptionsProvider = ({ children }) => {
   const [showBoreholes, setShowBoreholes] = useState(() => loadFromStorage('displayOptions.showBoreholes', true));
   const [showBoreholeStrata, setShowBoreholeStrata] = useState(() => loadFromStorage('displayOptions.showBoreholeStrata', true));
   const [showWaterTable, setShowWaterTable] = useState(() => loadFromStorage('displayOptions.showWaterTable', true));
-  
+  const [showSiteMap, setShowSiteMap] = useState(() => loadFromStorage('displayOptions.showSiteMap', true));
+
+  // Confidence visualization toggle - shows per-vertex opacity based on data certainty
+  const [showConfidenceVisualization, setShowConfidenceVisualization] = useState(
+    () => loadFromStorage('displayOptions.showConfidenceVisualization', false)
+  );
+
   // Texture Enhancement Settings
   const [textureSettings, setTextureSettings] = useState(() => loadFromStorage('displayOptions.textureSettings', {
     enabled: true,
@@ -343,7 +349,9 @@ export const DisplayOptionsProvider = ({ children }) => {
         showGroundGrid,
         showBoreholes,
         showBoreholeStrata,
-        showWaterTable
+        showWaterTable,
+        showSiteMap,
+        showConfidenceVisualization
       };
       
       try {
@@ -354,16 +362,18 @@ export const DisplayOptionsProvider = ({ children }) => {
     }, 100); // Debounce for 100ms to reduce localStorage writes
     
   }, [
-    showLayerPanel, 
-    showLabels, 
-    showMarkers, 
-    showDepthMarkers, 
-    showConnectors, 
-    showStrata, 
-    showGroundGrid, 
-    showBoreholes, 
-    showBoreholeStrata, 
-    showWaterTable
+    showLayerPanel,
+    showLabels,
+    showMarkers,
+    showDepthMarkers,
+    showConnectors,
+    showStrata,
+    showGroundGrid,
+    showBoreholes,
+    showBoreholeStrata,
+    showWaterTable,
+    showSiteMap,
+    showConfidenceVisualization
   ]);
 
   // Debounce complex object persistence (Maps, large objects)
@@ -416,7 +426,9 @@ export const DisplayOptionsProvider = ({ children }) => {
     showGroundGrid,
     showBoreholes,
     showBoreholeStrata,
-    showWaterTable
+    showWaterTable,
+    showSiteMap,
+    showConfidenceVisualization
   }), [
     showLayerPanel,
     showLabels,
@@ -427,7 +439,9 @@ export const DisplayOptionsProvider = ({ children }) => {
     showGroundGrid,
     showBoreholes,
     showBoreholeStrata,
-    showWaterTable
+    showWaterTable,
+    showSiteMap,
+    showConfidenceVisualization
   ]);
 
   const basicVisibilityActions = useMemo(() => ({
@@ -440,7 +454,9 @@ export const DisplayOptionsProvider = ({ children }) => {
     setShowGroundGrid,
     setShowBoreholes,
     setShowBoreholeStrata,
-    setShowWaterTable
+    setShowWaterTable,
+    setShowSiteMap,
+    setShowConfidenceVisualization
   }), [
     setShowLayerPanel,
     setShowLabels,
@@ -451,7 +467,9 @@ export const DisplayOptionsProvider = ({ children }) => {
     setShowGroundGrid,
     setShowBoreholes,
     setShowBoreholeStrata,
-    setShowWaterTable
+    setShowWaterTable,
+    setShowSiteMap,
+    setShowConfidenceVisualization
   ]);
 
   const textureSection = useMemo(() => ({

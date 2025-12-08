@@ -2,10 +2,11 @@ import React, { useState, useCallback, useEffect, useMemo, useTransition, useRef
 import { BOREHOLE_TYPES } from '../../models/Borehole';
 import { validateBoreholeData } from '../../utils/geologicalValidation';
 import { STANDARD_MATERIALS, getMaterialProperties } from '../../utils/materialStandardization';
+import { handleWholeUnitScroll, handleWholeUnitKeyboard } from '../../utils/numericInputHelpers';
 import StandardButton from './StandardButton';
-import { 
-  StandardInput, 
-  StandardSelect, 
+import {
+  StandardInput,
+  StandardSelect,
   StandardFormGroup
 } from './StandardForm';
 import TexturePreview from './TexturePreview';
@@ -34,7 +35,7 @@ const USCS_MATERIAL_GROUPS = {
     materials: ['GW', 'GP', 'GM', 'GC']
   },
   'SANDS': {
-    name: 'Sands (Coarse-Grained)', 
+    name: 'Sands (Coarse-Grained)',
     materials: ['SW', 'SP', 'SM', 'SC']
   },
   'SILTS_CLAYS_LOW': {
@@ -80,8 +81,8 @@ const AccordionSection = React.memo(({ title, icon, summary, children, isOpen, s
       </div>
       <div className="accordion-summary">
         {summary && <span>{summary}</span>}
-        <Icon 
-          path={isOpen ? "M5 10h10" : "M10 5.5v9m-4.5-4.5h9"} 
+        <Icon
+          path={isOpen ? "M5 10h10" : "M10 5.5v9m-4.5-4.5h9"}
           className={`accordion-chevron ${isOpen ? 'expanded' : ''}`}
         />
       </div>
@@ -110,12 +111,12 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
     transition,
     zIndex: isDragging ? 10 : 1,
   };
-  
+
   const thickness = (layer.to || 0) - (layer.from || 0);
 
   return (
-    <div 
-      ref={setNodeRef} 
+    <div
+      ref={setNodeRef}
       style={style}
       className={`layer-item ${isDragging ? 'dragging' : ''}`}
     >
@@ -130,9 +131,9 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
       )}
       <div className="layer-header">
         <div className="accordion-header-left">
-          <div 
-            {...attributes} 
-            {...listeners} 
+          <div
+            {...attributes}
+            {...listeners}
             className="layer-drag-handle"
             title="Drag to reorder"
           >
@@ -143,7 +144,7 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
               Layer {index + 1}
             </h4>
             <p className="layer-subtitle">
-              {thickness.toFixed(1)}m thick
+              {thickness.toFixed(1)}ft thick
             </p>
           </div>
         </div>
@@ -155,8 +156,8 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
           <label className="form-label-new">
             Material
           </label>
-          <div className="color-preview-container" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div 
+          <div className="color-preview-container">
+            <div
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -175,7 +176,7 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
               value={layer.material}
               onChange={(e) => onLayerChange(index, 'material', e.target.value)}
               className="form-select-new"
-              style={{flex: 1}}
+              style={{ flex: 1 }}
             >
               {Object.entries(USCS_MATERIAL_GROUPS).map(([groupKey, group]) => (
                 <optgroup key={groupKey} label={group.name}>
@@ -193,7 +194,7 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
             </StandardSelect>
           </div>
         </StandardFormGroup>
-        
+
         {/* Depth Control */}
         <StandardFormGroup>
           <label className="form-label-new">
@@ -204,9 +205,11 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
               type="number"
               value={layer.from}
               onChange={(e) => onLayerChange(index, 'from', e.target.value)}
+              onWheel={(e) => handleWholeUnitScroll(e, (val) => onLayerChange(index, 'from', val), { step: 1, min: 0, max: totalDepth, allowDecimals: false })}
+              onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => onLayerChange(index, 'from', val), { step: 1, min: 0, max: totalDepth, allowDecimals: false })}
               className="depth-input"
-              step="0.1" 
-              min="0" 
+              step="any"
+              min="0"
               max={totalDepth}
               disabled={isAutoFrom}
             />
@@ -215,15 +218,17 @@ const SortableLayerItem = ({ layer, index, onLayerChange, removeLayer, totalDept
               type="number"
               value={layer.to}
               onChange={(e) => onLayerChange(index, 'to', e.target.value)}
+              onWheel={(e) => handleWholeUnitScroll(e, (val) => onLayerChange(index, 'to', val), { step: 1, min: 0, max: totalDepth, allowDecimals: false })}
+              onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => onLayerChange(index, 'to', val), { step: 1, min: 0, max: totalDepth, allowDecimals: false })}
               className="depth-input"
-              step="0.1" 
-              min="0" 
+              step="any"
+              min="0"
               max={totalDepth}
             />
           </div>
         </StandardFormGroup>
       </div>
-      
+
       {/* Validation Messages */}
       {getLayerStatus(index).messages.length > 0 && (
         <div className="layer-validation-messages">
@@ -256,33 +261,19 @@ const LayerProfile = ({ layers, totalDepth, getMaterialColor }) => {
           if (height <= 0) return null;
 
           const layerHeightPx = Math.max(20, (height / 100) * 200); // Assume profile is ~200px tall
-          
+
           return (
-            <div 
-              key={layer.id} 
+            <div
+              key={layer.id}
+              className="layer-profile-segment"
               style={{
-                position: 'absolute',
                 top: `${top}%`,
                 height: `${height}%`,
-                width: '100%',
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
               }}
             >
               {/* Texture background */}
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 0,
-                overflow: 'hidden'
-              }}>
-                <TexturePreview 
+              <div className="layer-profile-texture-bg">
+                <TexturePreview
                   material={layer.material}
                   width={200}
                   height={layerHeightPx}
@@ -294,59 +285,34 @@ const LayerProfile = ({ layers, totalDepth, getMaterialColor }) => {
                   }}
                 />
               </div>
-              
+
               {/* Material label overlay */}
-              <div 
-                className="material-label-overlay"
-                style={{
-                  position: 'relative',
-                  zIndex: 1,
-                  backgroundColor: 'rgba(0,0,0,0.6)',
-                  borderRadius: '12px',
-                  padding: '2px 8px',
-                  fontSize: '11px',
-                  fontWeight: '600',
-                  color: 'white',
-                  opacity: 0,
-                  transition: 'opacity 0.2s',
-                  pointerEvents: 'none'
-                }}
-              >
+              <div className="layer-profile-label-overlay">
                 {layer.material}
               </div>
-              
+
               {/* Depth label */}
-              <div style={{
-                position: 'absolute',
-                left: '-48px',
-                top: '0',
-                fontSize: '10px',
-                color: 'var(--text-secondary)',
-                width: '40px',
-                textAlign: 'right'
-              }}>
-                {layer.from.toFixed(1)}m
+              <div className="layer-profile-depth-label">
+                {layer.from.toFixed(1)}ft
               </div>
             </div>
           );
         })}
 
         {undefinedDepth > 0.01 && (
-          <div style={{
-            position: 'absolute',
-            top: `${(definedDepth / totalDepth) * 100}%`,
-            height: `${(undefinedDepth / totalDepth) * 100}%`,
-            width: '100%',
-            background: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 20px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-secondary)',
-            fontSize: '12px'
-          }}>
+          <div
+            className="layer-profile-undefined"
+            style={{
+              top: `${(definedDepth / totalDepth) * 100}%`,
+              height: `${(undefinedDepth / totalDepth) * 100}%`,
+            }}
+          >
             Undefined
           </div>
         )}
+        <div className="layer-profile-depth-label bottom">
+          {totalDepth.toFixed(1)}ft
+        </div>
         <div style={{
           position: 'absolute',
           left: '-48px',
@@ -356,7 +322,7 @@ const LayerProfile = ({ layers, totalDepth, getMaterialColor }) => {
           width: '40px',
           textAlign: 'right'
         }}>
-          {totalDepth.toFixed(1)}m
+          {totalDepth.toFixed(1)}ft
         </div>
       </div>
     </div>
@@ -373,27 +339,27 @@ const HSLColorWheel = ({ size = 180, onColorSelect, selectedColor = '#ff0000' })
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const centerX = size / 2;
     const centerY = size / 2;
     const radius = size / 2 - 10;
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, size, size);
-    
+
     // Draw color wheel
     for (let angle = 0; angle < 360; angle += 1) {
       const startAngle = (angle - 1) * Math.PI / 180;
       const endAngle = angle * Math.PI / 180;
-      
+
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius, startAngle, endAngle);
       ctx.lineWidth = 20;
       ctx.strokeStyle = `hsl(${angle}, 100%, 50%)`;
       ctx.stroke();
     }
-    
+
     // Draw inner circle (brightness/saturation)
     const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius - 20);
     gradient.addColorStop(0, 'white');
@@ -402,7 +368,7 @@ const HSLColorWheel = ({ size = 180, onColorSelect, selectedColor = '#ff0000' })
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius - 20, 0, 2 * Math.PI);
     ctx.fill();
-    
+
     const gradient2 = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius - 20);
     gradient2.addColorStop(0, 'transparent');
     gradient2.addColorStop(1, 'black');
@@ -419,12 +385,12 @@ const HSLColorWheel = ({ size = 180, onColorSelect, selectedColor = '#ff0000' })
 
   const handleMouseMove = (e) => {
     if (!isDragging && e.type === 'mousemove') return;
-    
+
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     // Calculate color based on position
     const centerX = size / 2;
     const centerY = size / 2;
@@ -433,13 +399,13 @@ const HSLColorWheel = ({ size = 180, onColorSelect, selectedColor = '#ff0000' })
     const angle = Math.atan2(dy, dx) * 180 / Math.PI;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const radius = size / 2 - 30;
-    
+
     if (distance <= radius) {
       const hue = (angle + 360) % 360;
       const saturation = Math.min(distance / radius * 100, 100);
       const lightness = 50;
       const color = hslToHex(hue, saturation, lightness);
-      
+
       setPosition({ x, y });
       onColorSelect(color);
     }
@@ -454,7 +420,7 @@ const HSLColorWheel = ({ size = 180, onColorSelect, selectedColor = '#ff0000' })
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -505,10 +471,10 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState({ x: size / 2, y: size / 2 });
   const canvasRef = React.useRef(null);
-  
+
   // Performance optimization - use RAF to throttle mouse events
   const mouseMoveRef = useRef(null);
-  
+
   // Pre-compute color lookup map for performance
   const colorLookupMapRef = useRef(new Map());
 
@@ -565,27 +531,27 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const centerX = size / 2;
     const centerY = size / 2;
     const outerRadius = size / 2 - 5;
-    
+
     // Clear canvas
     ctx.clearRect(0, 0, size, size);
-    
+
     // Draw concentric rings of soil colors
     const ringWidth = outerRadius / soilColorRings.length;
-    
+
     soilColorRings.forEach((ring, ringIndex) => {
       const innerRadius = ringIndex * ringWidth;
       const currentOuterRadius = (ringIndex + 1) * ringWidth;
       const angleStep = (2 * Math.PI) / ring.length;
-      
+
       ring.forEach((color, colorIndex) => {
         const startAngle = colorIndex * angleStep;
         const endAngle = (colorIndex + 1) * angleStep;
-        
+
         // Create gradient for each segment
         const gradient = ctx.createRadialGradient(
           centerX, centerY, innerRadius,
@@ -593,21 +559,21 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
         );
         gradient.addColorStop(0, lightenColor(color, 0.2));
         gradient.addColorStop(1, color);
-        
+
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(centerX, centerY, currentOuterRadius, startAngle, endAngle);
         ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
         ctx.closePath();
         ctx.fill();
-        
+
         // Add subtle border
         ctx.strokeStyle = 'rgba(255,255,255,0.1)';
         ctx.lineWidth = 0.5;
         ctx.stroke();
       });
     });
-    
+
     // Add center circle with common soil color
     const centerGradient = ctx.createRadialGradient(
       centerX, centerY, 0,
@@ -615,17 +581,17 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
     );
     centerGradient.addColorStop(0, '#DEB887'); // Burlywood
     centerGradient.addColorStop(1, '#CD853F'); // Peru
-    
+
     ctx.fillStyle = centerGradient;
     ctx.beginPath();
     ctx.arc(centerX, centerY, ringWidth * 0.7, 0, 2 * Math.PI);
     ctx.fill();
-    
+
     // Center border
     ctx.strokeStyle = 'rgba(255,255,255,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    
+
   }, [size]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMouseDown = (e) => {
@@ -636,32 +602,32 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
   // Performance-optimized mouse move handler using RAF
   const handleMouseMove = useCallback((e) => {
     if (!isDragging && e.type === 'mousemove') return;
-    
+
     // Cancel previous RAF to prevent queuing
     if (mouseMoveRef.current) {
       cancelAnimationFrame(mouseMoveRef.current);
     }
-    
+
     // Use requestAnimationFrame to throttle expensive calculations
     mouseMoveRef.current = requestAnimationFrame(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      
+
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
+
       const centerX = size / 2;
       const centerY = size / 2;
       const dx = x - centerX;
       const dy = y - centerY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       const outerRadius = size / 2 - 5;
-      
+
       if (distance <= outerRadius) {
         // Create lookup key for caching
         const lookupKey = `${Math.floor(distance)}-${Math.floor(Math.atan2(dy, dx) * 100)}`;
-        
+
         // Check cache first
         if (colorLookupMapRef.current.has(lookupKey)) {
           const cachedResult = colorLookupMapRef.current.get(lookupKey);
@@ -669,12 +635,12 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
           onColorSelect(cachedResult.color);
           return;
         }
-        
+
         // Calculate color if not cached
         let selectedColor = '#8B4513'; // Default
         const ringWidth = outerRadius / soilColorRings.length;
         const ringIndex = Math.min(Math.floor(distance / ringWidth), soilColorRings.length - 1);
-        
+
         // Handle center circle
         if (distance < ringWidth * 0.7) {
           selectedColor = '#CD853F'; // Center color
@@ -685,16 +651,16 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
           const segmentIndex = Math.floor((normalizedAngle / (2 * Math.PI)) * ring.length);
           selectedColor = ring[segmentIndex] || ring[0];
         }
-        
+
         // Cache the result
         colorLookupMapRef.current.set(lookupKey, { color: selectedColor });
-        
+
         // Limit cache size to prevent memory leaks
         if (colorLookupMapRef.current.size > 100) {
           const firstKey = colorLookupMapRef.current.keys().next().value;
           colorLookupMapRef.current.delete(firstKey);
         }
-        
+
         setPosition({ x, y });
         onColorSelect(selectedColor);
       }
@@ -714,7 +680,7 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
@@ -748,7 +714,7 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
           pointerEvents: 'none'
         }}
       />
-      
+
       {/* Organized Legend */}
       <div style={{
         position: 'absolute',
@@ -764,14 +730,14 @@ const SoilColorWheel = React.memo(({ size = 180, onColorSelect, selectedColor = 
         whiteSpace: 'nowrap',
         textAlign: 'center'
       }}>
-        <div style={{display: 'flex', gap: '6px'}}>
+        <div style={{ display: 'flex', gap: '6px' }}>
           <span>Sandy</span>
           <span>•</span>
           <span>Clay & Loam</span>
           <span>•</span>
           <span>Organic & Rock</span>
         </div>
-        <div style={{fontSize: '8px', opacity: 0.8}}>
+        <div style={{ fontSize: '8px', opacity: 0.8 }}>
           (Organized clockwise by soil type)
         </div>
       </div>
@@ -792,43 +758,23 @@ function lightenColor(color, amount) {
 // Color Picker Component - Memoized for performance
 const ColorPicker = React.memo(({ onClose, onColorSelect, currentColor, colorPickerType = 'material' }) => {
   const [selectedColor, setSelectedColor] = useState(currentColor || '#8B4513');
-  
+
   const handleWheelColorSelect = (color) => {
     setSelectedColor(color);
   };
 
 
   return (
-    <div 
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-      }}
+    <div
+      className="color-picker-overlay"
       onClick={onClose}
     >
-      <div 
-        style={{
-          background: 'var(--bg-panel)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '12px',
-          padding: '20px',
-          minWidth: '280px',
-          maxWidth: '320px'
-        }}
+      <div
+        className="color-picker-modal"
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '16px'
-        }}>
-          <h3 style={{color: 'var(--text-primary)', margin: 0, fontSize: '18px', fontWeight: '600'}}>
+        <div className="color-picker-header">
+          <h3 className="color-picker-title">
             {colorPickerType === 'borehole' ? '🎯 Choose Borehole Color' : '🌱 Choose Soil Color'}
           </h3>
           <StandardButton
@@ -838,24 +784,24 @@ const ColorPicker = React.memo(({ onClose, onColorSelect, currentColor, colorPic
             className="modal-close-new"
           />
         </div>
-        
+
         {/* Color Wheel - Different types based on context */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+        <div className="color-wheel-container">
           {colorPickerType === 'borehole' ? (
-            <HSLColorWheel 
-              size={180} 
+            <HSLColorWheel
+              size={180}
               onColorSelect={handleWheelColorSelect}
               selectedColor={selectedColor}
             />
           ) : (
-            <SoilColorWheel 
-              size={180} 
+            <SoilColorWheel
+              size={180}
               onColorSelect={handleWheelColorSelect}
               selectedColor={selectedColor}
             />
           )}
         </div>
-        
+
         {/* Hex Color Input */}
         <StandardFormGroup>
           <div className="color-preview-container">
@@ -882,16 +828,16 @@ const ColorPicker = React.memo(({ onClose, onColorSelect, currentColor, colorPic
             />
           </div>
         </StandardFormGroup>
-        
+
         {/* Actions */}
         <div className="modal-actions">
-          <StandardButton 
+          <StandardButton
             variant="secondary"
             onClick={onClose}
           >
             Cancel
           </StandardButton>
-          <StandardButton 
+          <StandardButton
             variant="primary"
             onClick={() => onColorSelect(selectedColor)}
           >
@@ -905,7 +851,7 @@ const ColorPicker = React.memo(({ onClose, onColorSelect, currentColor, colorPic
 
 const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendingCoordinates }) => {
   const [boreholeName, setBoreholeName] = useState('');
-  const [totalDepth, setTotalDepth] = useState(32.8);
+  const [totalDepth, setTotalDepth] = useState(30); // Default to whole number for easier input
   const [boreholeType, setBoreholeType] = useState('BUILDING');
   const [layers, setLayers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -915,13 +861,13 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
   const [customLayerColors, setCustomLayerColors] = useState({}); // Per-layer colors
   const [customBoreholeColor, setCustomBoreholeColor] = useState(null);
   const [showColorPicker, setShowColorPicker] = useState({ type: null, id: null });
-  
+
   // Performance optimization - use transitions for Advanced Mode toggle
   const [isPending, startTransition] = useTransition();
-  
+
   // Water table state
   const [hasWaterTable, setHasWaterTable] = useState(false);
-  const [waterTableDepth, setWaterTableDepth] = useState(16.4);
+  const [waterTableDepth, setWaterTableDepth] = useState(15); // Default to whole number for easier input
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -947,12 +893,26 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
       setLayers([{ id: `default-${Date.now()}`, from: 0, to: totalDepth, material: 'CLAY' }]);
     }
   }, [totalDepth, layers.length]);
-  
+
 
   // Update name when defaultName changes
   useEffect(() => {
     setBoreholeName(defaultName || '');
   }, [defaultName]);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
 
   // Helper functions
   const getMaterialColor = useCallback((material, layerId = null) => {
@@ -978,7 +938,7 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
 
   const handleColorChange = useCallback((color) => {
     const { type, id } = showColorPicker;
-    
+
     if (type === 'material') {
       // id is now the layer ID, not the material type
       setCustomLayerColors(prev => ({
@@ -988,7 +948,7 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
     } else if (type === 'borehole') {
       setCustomBoreholeColor(color);
     }
-    
+
     // Close color picker
     setShowColorPicker({ type: null, id: null });
   }, [showColorPicker]);
@@ -1001,18 +961,23 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
 
     if (layer.from < 0 || layer.to < 0) messages.push("Depths cannot be negative.");
     if (layer.to <= layer.from) messages.push("'To' depth must be greater than 'From' depth.");
-    if (layer.to > totalDepth) messages.push(`Layer extends beyond total borehole depth of ${totalDepth}m.`);
+    if (layer.to > totalDepth) messages.push(`Layer extends beyond total borehole depth of ${totalDepth}ft.`);
     if (prevLayer && layer.from < prevLayer.to) messages.push("Layer overlaps with the one above.");
-    
+
     if (messages.length > 0) type = 'error';
     return { type, messages };
   }, [layers, totalDepth]);
+
+  // Helper function to round to 1 decimal place (0.1 ft precision)
+  const roundDepth = (value) => Math.round(value * 10) / 10;
 
   // Event handlers
   const handleLayerChange = useCallback((index, field, value) => {
     let newLayers = [...layers];
     const layer = { ...newLayers[index] };
-    const numValue = parseFloat(value);
+    // Parse value and round to avoid floating point precision issues
+    let numValue = typeof value === 'number' ? value : parseFloat(value);
+    numValue = roundDepth(numValue); // Round to 1 decimal place
 
     if (field === 'material') {
       layer.material = value;
@@ -1020,25 +985,27 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
     } else if ((field === 'from' || field === 'to') && !isNaN(numValue)) {
       layer[field] = numValue;
       newLayers[index] = layer;
-      
+
       // Auto-adjust subsequent layers to maintain continuity
       if (field === 'to' && index < newLayers.length - 1) {
         // Update all subsequent layers to maintain continuity
         let currentDepth = numValue;
         for (let i = index + 1; i < newLayers.length; i++) {
-          const thickness = newLayers[i].to - newLayers[i].from;
+          const thickness = roundDepth(newLayers[i].to - newLayers[i].from);
+          const newFrom = roundDepth(currentDepth);
+          const newTo = roundDepth(currentDepth + thickness);
           newLayers[i] = {
             ...newLayers[i],
-            from: currentDepth,
-            to: currentDepth + thickness
+            from: newFrom,
+            to: newTo
           };
-          currentDepth += thickness;
+          currentDepth = newTo;
         }
       } else if (field === 'from' && index > 0) {
         // If changing 'from' of a non-first layer, update previous layer's 'to'
         newLayers[index - 1] = {
           ...newLayers[index - 1],
-          to: numValue
+          to: roundDepth(numValue)
         };
       }
     }
@@ -1053,12 +1020,13 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
       }
 
       const lastLayer = currentLayers[currentLayers.length - 1];
-      
+
       if (lastLayer.to <= lastLayer.from) {
         return currentLayers;
       }
 
-      const splitPoint = lastLayer.from + (lastLayer.to - lastLayer.from) / 2;
+      // Round split point to avoid floating point precision issues
+      const splitPoint = roundDepth(lastLayer.from + (lastLayer.to - lastLayer.from) / 2);
 
       const newLayer = {
         id: `layer-${Date.now()}`,
@@ -1088,8 +1056,8 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
       if (indexToRemove === 0) {
         // If removing first layer, ensure next layer starts at 0
         if (newLayers.length > 0) {
-          const thickness = newLayers[0].to - newLayers[0].from;
-          newLayers[0] = { ...newLayers[0], from: 0, to: thickness };
+          const thickness = roundDepth(newLayers[0].to - newLayers[0].from);
+          newLayers[0] = { ...newLayers[0], from: 0, to: roundDepth(thickness) };
         }
       } else if (indexToRemove < currentLayers.length - 1) {
         // If removing a middle layer, close the gap by shifting subsequent layers up
@@ -1100,13 +1068,13 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
           }
           newLayers[i] = {
             ...newLayers[i],
-            from: newLayers[i].from - removedThickness,
-            to: newLayers[i].to - removedThickness
+            from: roundDepth(newLayers[i].from - removedThickness),
+            to: roundDepth(newLayers[i].to - removedThickness)
           };
         }
       }
       // If removing last layer, no adjustment needed
-      
+
       return newLayers;
     });
   }, []);
@@ -1117,27 +1085,27 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
       setLayers((items) => {
         const oldIndex = items.findIndex(item => item.id === active.id);
         const newIndex = items.findIndex(item => item.id === over.id);
-        
+
         // First, reorder the layers
         const reorderedLayers = arrayMove(items, oldIndex, newIndex);
-        
+
         // Then, recalculate depths to maintain continuity
         let currentDepth = 0;
         const adjustedLayers = reorderedLayers.map((layer, index) => {
           // Calculate thickness (preserve original thickness)
-          const thickness = layer.to - layer.from;
-          
+          const thickness = roundDepth(layer.to - layer.from);
+
           // Update from/to based on new position
           const updatedLayer = {
             ...layer,
-            from: currentDepth,
-            to: currentDepth + thickness
+            from: roundDepth(currentDepth),
+            to: roundDepth(currentDepth + thickness)
           };
-          
+
           currentDepth += thickness;
           return updatedLayer;
         });
-        
+
         return adjustedLayers;
       });
     }
@@ -1145,13 +1113,13 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     setFormErrors({});
-    
+
     const selectedType = BOREHOLE_TYPES[boreholeType];
     // Use custom borehole color if available, otherwise use type default
     const finalColor = customBoreholeColor || (selectedType ? selectedType.color : BOREHOLE_TYPES.OTHER.color);
-    
+
     const boreholeData = {
       name: boreholeName.trim() || defaultName,
       depth: totalDepth,
@@ -1171,16 +1139,16 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
         z: pendingCoordinates.z
       })
     };
-    
+
     const validationResult = validateBoreholeData(boreholeData);
-    
+
     if (!validationResult.isValid) {
       setFormErrors({ general: validationResult.errors });
       return;
     }
-    
+
     setLoading(true);
-    
+
     if (isAdvancedMode) {
       // Advanced mode: Use detailed layer data from the modal
       const formData = {
@@ -1198,7 +1166,7 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
         waterTableEncountered: hasWaterTable,
         waterTableDepth: hasWaterTable ? waterTableDepth : null
       };
-      
+
       setTimeout(() => {
         onConfirm(formData);
         resetForm();
@@ -1216,7 +1184,7 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
         waterTableEncountered: hasWaterTable,
         waterTableDepth: hasWaterTable ? waterTableDepth : null
       };
-      
+
       setTimeout(() => {
         onConfirm(simpleData);
         resetForm();
@@ -1244,24 +1212,27 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="borehole-modal-title">
       <div className="modal-container-new">
         {/* Header */}
         <div className="modal-header-new">
-          <h1 className="modal-title-new"> Create Borehole</h1>
+          <h1 id="borehole-modal-title" className="modal-title-new">
+            Create Borehole Marker
+          </h1>
           <StandardButton
             variant="icon"
             onClick={onClose}
             className="modal-close-new"
             icon="×"
+            aria-label="Close modal"
           />
         </div>
 
-        <form onSubmit={handleSubmit} className="modal-form-new">
+        <form id="borehole-creation-form" onSubmit={handleSubmit} className="modal-form-new">
           {/* Basic Info Section */}
           <StandardFormGroup>
             <h3 className="form-section-title">Basic Information</h3>
-            
+
             <StandardInput
               id="boreholeName"
               label="Borehole Name/ID"
@@ -1269,17 +1240,23 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
               onChange={(e) => setBoreholeName(e.target.value)}
               placeholder={defaultName}
             />
-            
+
             <StandardInput
               id="totalDepth"
               label="Total Depth (ft)"
               type="number"
               value={totalDepth}
-              onChange={(e) => setTotalDepth(parseFloat(e.target.value) || 0)}
-              step="0.1"
+              onChange={(e) => {
+                const val = e.target.value;
+                // Handle empty string, otherwise parse as float (supports both whole numbers and decimals)
+                setTotalDepth(val === '' ? 0 : parseFloat(val) || 0);
+              }}
+              onWheel={(e) => handleWholeUnitScroll(e, setTotalDepth, { step: 1, min: 0.1, allowDecimals: false })}
+              onKeyDown={(e) => handleWholeUnitKeyboard(e, setTotalDepth, { step: 1, min: 0.1, allowDecimals: false })}
+              step="any"
               min="0.1"
             />
-            
+
             {/* Water Table Section */}
             <StandardFormGroup>
               <div className="water-table-header">
@@ -1296,7 +1273,7 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
                   Water Table Encountered
                 </label>
               </div>
-              
+
               {hasWaterTable && (
                 <div className="water-table-input-section">
                   <StandardInput
@@ -1304,8 +1281,14 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
                     label="Water Table Depth (ft)"
                     type="number"
                     value={waterTableDepth}
-                    onChange={(e) => setWaterTableDepth(parseFloat(e.target.value) || 0)}
-                    step="0.1"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Handle empty string, otherwise parse as float (supports both whole numbers and decimals)
+                      setWaterTableDepth(val === '' ? 0 : parseFloat(val) || 0);
+                    }}
+                    onWheel={(e) => handleWholeUnitScroll(e, setWaterTableDepth, { step: 1, min: 0, max: totalDepth, allowDecimals: false })}
+                    onKeyDown={(e) => handleWholeUnitKeyboard(e, setWaterTableDepth, { step: 1, min: 0, max: totalDepth, allowDecimals: false })}
+                    step="any"
                     min="0"
                     max={totalDepth}
                     helpText={`Water table at ${waterTableDepth.toFixed(1)}ft depth • ${(totalDepth - waterTableDepth).toFixed(1)}ft from bottom`}
@@ -1313,13 +1296,13 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
                 </div>
               )}
             </StandardFormGroup>
-            
+
             <StandardFormGroup>
               <label className="form-label-new">
                 Borehole Type
               </label>
               <div className="borehole-type-container">
-                <div 
+                <div
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1338,13 +1321,13 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
                     <div className="color-picker-badge" />
                   )}
                 </div>
-                <StandardSelect 
-                  id="boreholeType" 
-                  value={boreholeType} 
-                  onChange={(e) => setBoreholeType(e.target.value)} 
+                <StandardSelect
+                  id="boreholeType"
+                  value={boreholeType}
+                  onChange={(e) => setBoreholeType(e.target.value)}
                   className="borehole-type-select"
                 >
-                  {Object.entries(BOREHOLE_TYPES).map(([key, {name}]) => (
+                  {Object.entries(BOREHOLE_TYPES).map(([key, { name }]) => (
                     <option key={key} value={key}>{name}</option>
                   ))}
                 </StandardSelect>
@@ -1357,10 +1340,10 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
             <div className="advanced-mode-container">
               <div className="advanced-mode-info">
                 <h4 className="advanced-mode-title">
-                  Geological Layer Configuration
+                  🏗️ Geological Layer Configuration
                 </h4>
                 <p className="advanced-mode-description">
-                  {isAdvancedMode ? 'Custom layer configuration enabled' : 'Using global soil layers (recommended)'}
+                  {isAdvancedMode ? '✓ Custom layer configuration enabled' : 'Using global soil layers (recommended)'}
                 </p>
               </div>
               <StandardButton
@@ -1370,7 +1353,7 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
                 disabled={isPending}
                 className={isPending ? 'transitioning' : ''}
               >
-                {isPending ? 'Loading...' : (isAdvancedMode ? 'Switch to Basic' : 'Advanced Mode')}
+                {isPending ? 'Loading...' : (isAdvancedMode ? '← Switch to Basic' : 'Advanced Mode →')}
               </StandardButton>
             </div>
           </div>
@@ -1384,45 +1367,45 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
               isOpen={isLayersOpen}
               setIsOpen={setIsLayersOpen}
             >
-            <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px'}}>
-              <div>
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={layers.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                    {layers.map((layer, index) => (
-                      <SortableLayerItem
-                        key={layer.id}
-                        id={layer.id}
-                        layer={layer}
-                        index={index}
-                        onLayerChange={handleLayerChange}
-                        removeLayer={removeLayer}
-                        totalDepth={totalDepth}
-                        isAutoFrom={index > 0}
-                        getMaterialColor={getMaterialColor}
-                        getLayerStatus={getLayerStatus}
-                        layerCount={layers.length}
-                        onColorPickerOpen={handleColorPickerOpen}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-                
-                <StandardButton
-                  variant="secondary"
-                  fullWidth
-                  onClick={addLayer}
-                  className="add-layer-btn"
-                  icon={<Icon path="M12 4.5v11m-5.5-5.5h11" />}
-                >
-                  Add New Layer
-                </StandardButton>
+              <div className="advanced-mode-grid">
+                <div>
+                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={layers.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                      {layers.map((layer, index) => (
+                        <SortableLayerItem
+                          key={layer.id}
+                          id={layer.id}
+                          layer={layer}
+                          index={index}
+                          onLayerChange={handleLayerChange}
+                          removeLayer={removeLayer}
+                          totalDepth={totalDepth}
+                          isAutoFrom={index > 0}
+                          getMaterialColor={getMaterialColor}
+                          getLayerStatus={getLayerStatus}
+                          layerCount={layers.length}
+                          onColorPickerOpen={handleColorPickerOpen}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+
+                  <StandardButton
+                    variant="secondary"
+                    fullWidth
+                    onClick={addLayer}
+                    className="add-layer-btn"
+                    icon={<Icon path="M12 4.5v11m-5.5-5.5h11" />}
+                  >
+                    Add New Layer
+                  </StandardButton>
+                </div>
+
+                <div>
+                  <LayerProfile layers={layers} totalDepth={totalDepth} getMaterialColor={getMaterialColor} />
+                </div>
               </div>
-              
-              <div>
-                <LayerProfile layers={layers} totalDepth={totalDepth} getMaterialColor={getMaterialColor} />
-              </div>
-            </div>
-          </AccordionSection>
+            </AccordionSection>
           )}
 
           {/* Error Display */}
@@ -1433,27 +1416,27 @@ const BoreholeCreationModal = ({ isOpen, onClose, onConfirm, defaultName, pendin
               ))}
             </div>
           )}
-
-          {/* Footer Actions */}
-          <div className="modal-actions">
-            <StandardButton 
-              variant="secondary"
-              onClick={onClose}
-            >
-              Cancel
-            </StandardButton>
-            <StandardButton 
-              type="submit"
-              variant="primary"
-              loading={loading}
-              disabled={loading}
-            >
-              {loading ? 'Creating...' : '+ Create Borehole'}
-            </StandardButton>
-          </div>
         </form>
-        
-        
+
+        {/* Footer Actions */}
+        <div className="modal-actions">
+          <StandardButton
+            variant="secondary"
+            onClick={onClose}
+          >
+            Cancel
+          </StandardButton>
+          <StandardButton
+            type="submit"
+            form="borehole-creation-form"
+            variant="primary"
+            loading={loading}
+            disabled={loading}
+          >
+            {loading ? 'Creating...' : '✓ Create Borehole'}
+          </StandardButton>
+        </div>
+
         {/* Color Picker Modal */}
         {showColorPicker.type && (
           <ColorPicker

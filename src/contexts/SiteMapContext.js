@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { ThreeJsContext } from './ThreeJsContext';
+import { useDisplayOptions } from './DisplayOptionsContext';
 import { MathUtils, Mesh, MeshBasicMaterial, PlaneGeometry, TextureLoader } from 'three';
 import { validationLogger } from '../utils/Logger.js';
 
@@ -15,6 +16,7 @@ export const useSiteMap = () => {
 
 export const SiteMapProvider = ({ children }) => {
   const { sceneManager } = useContext(ThreeJsContext);
+  const { showSiteMap } = useDisplayOptions();
   const [mapData, setMapData] = useState(null);
   const [mapObject, setMapObject] = useState(null);
   const [mapFileName, setMapFileName] = useState(null);
@@ -28,6 +30,16 @@ export const SiteMapProvider = ({ children }) => {
     opacity: 1.0
   });
 
+  // Sync visibility with DisplayOptionsContext
+  useEffect(() => {
+    if (showSiteMap !== undefined && mapObject) {
+      mapObject.visible = showSiteMap;
+      setSiteMapProps(prev => ({
+        ...prev,
+        visible: showSiteMap
+      }));
+    }
+  }, [showSiteMap, mapObject]);
 
   const loadSiteMap = useCallback(async (mapConfig) => {
     if (!sceneManager) return;

@@ -1,0 +1,294 @@
+/**
+ * Export Section Styles
+ * Professional export panel with card-based button layout
+ */
+
+.export-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  /* Scrollability */
+  max-height: 350px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 8px;
+  /* Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Custom scrollbar for export options */
+.export-options::-webkit-scrollbar {
+  width: 6px;
+}
+
+.export-options::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+
+.export-options::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.export-options::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.export-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-spring);
+  width: 100%;
+  text-align: left;
+}
+
+.export-card-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-highlight);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.export-card-btn:active {
+  transform: translateY(0);
+}
+
+.export-card-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.export-label {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.export-icon {
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  transition: color var(--duration-fast) var(--ease-spring);
+}
+
+.export-card-btn:hover .export-icon {
+  color: var(--accent-primary);
+  transform: translateX(2px);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .export-card-btn {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .export-label {
+    font-size: 13px;
+  }
+}
+
+/* Export button content layout */
+.export-btn-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-sublabel {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+/* Disabled state */
+.export-card-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Export status and progress */
+.export-status {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.export-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: var(--space-sm);
+}
+
+.export-progress-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease-out;
+}
+
+.export-progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.export-progress-percent {
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.export-cancel-btn {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.export-cancel-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-highlight);
+  color: var(--text-primary);
+}
+
+/* Export messages (error, success, info) */
+.export-message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  margin-bottom: var(--space-sm);
+}
+
+.export-message-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.export-message-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.export-dismiss-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 16px;
+  line-height: 1;
+  transition: opacity var(--duration-fast);
+}
+
+.export-dismiss-btn:hover {
+  opacity: 1;
+}
+
+.export-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.export-success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+.export-info {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+/* Export capabilities summary */
+.export-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-subtle);
+  margin-top: var(--space-sm);
+}
+
+.capability-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.capability-item .available {
+  color: #22c55e;
+}
+
+.capability-item .unavailable {
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+/* Loading spinner animation */
+.export-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .export-card-btn,
+  .export-icon,
+  .export-progress-fill {
+    transition: none !important;
+  }
+
+  .export-card-btn:hover {
+    transform: none !important;
+  }
+
+  .export-spinner {
+    animation: none;
+  }
+}

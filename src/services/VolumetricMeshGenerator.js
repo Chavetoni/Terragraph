@@ -7,6 +7,7 @@ import { BufferAttribute, BufferGeometry, Color, DoubleSide, EdgesGeometry, Line
 import { SpatialInterpolationEngine } from './SpatialInterpolationEngine';
 import { GeologicalSequenceEngine } from './GeologicalSequenceEngine';
 import { AdvancedInterpolationEngine } from './AdvancedInterpolationEngine';
+import { HorizonPreprocessor } from './HorizonPreprocessor';
 import { getMaterialProperties } from '../utils/materialStandardization';
 import { textureManager } from './TextureManager';
 import { 
@@ -17,13 +18,8 @@ import {
 } from '../utils/Logger.js';
 import { GeometryUtils } from './geology/GeometryUtils.js';
 import { CoordinateSystemConverter } from '../utils/coordinateSystemConverter.js';
-// import { ExportUtilities } from './geology/ExportUtilities.js'; // Available when needed for texture export utilities
 
-
-const EPSILON = 1e-10; // Small value for division-by-zero protection
-
-// Legacy material colors - deprecated, now using USCS standardized system
-// getMaterialColor now uses the USCS material standardization system
+const EPSILON = 1e-10;
 
 export class VolumetricMeshGenerator {
 
@@ -54,10 +50,11 @@ export class VolumetricMeshGenerator {
    * @returns {Object} Mesh data with vertices, indices, colors
    */
   static createLayerVolume(topSurface, bottomSurface, material, extent, resolution, options = {}) {
-    const { opacity = 0.5 } = options;
+    const { opacity = 0.5, showConfidenceVisualization = false } = options;
     const vertices = [];
     const indices = [];
     const colors = [];
+    const alphas = [];  // Per-vertex opacity based on confidence (for confidence visualization)
     const normals = [];
     const uvs = [];
 
@@ -112,11 +109,18 @@ export class VolumetricMeshGenerator {
       }
       
       colors.push(
-        Math.min(1.0, materialColor.r * finalBrightness + elevationColorShift), 
-        Math.min(1.0, materialColor.g * finalBrightness), 
+        Math.min(1.0, materialColor.r * finalBrightness + elevationColorShift),
+        Math.min(1.0, materialColor.g * finalBrightness),
         Math.min(1.0, materialColor.b * finalBrightness + (1 - elevationRatio) * contourStrength * 0.2)
       );
-      
+
+      // Calculate per-vertex alpha based on confidence (for confidence visualization)
+      const pointConfidence = point.confidence !== undefined ? point.confidence : 1.0;
+      const vertexAlpha = showConfidenceVisualization
+        ? Math.max(0.15, opacity * pointConfidence)  // Min floor of 0.15 to keep visible
+        : opacity;  // Use uniform opacity when confidence viz is off
+      alphas.push(vertexAlpha);
+
       normals.push(0, 1, 0); // Normal pointing up
       uvs.push(
         (point.x - extent.minX) / (extent.maxX - extent.minX),
@@ -161,10 +165,18 @@ export class VolumetricMeshGenerator {
       }
       
       colors.push(
-        Math.min(1.0, materialColor.r * finalBrightness + elevationColorShift), 
-        Math.min(1.0, materialColor.g * finalBrightness), 
+        Math.min(1.0, materialColor.r * finalBrightness + elevationColorShift),
+        Math.min(1.0, materialColor.g * finalBrightness),
         Math.min(1.0, materialColor.b * finalBrightness + (1 - elevationRatio) * contourStrength * 0.15)
       );
+
+      // Calculate per-vertex alpha based on confidence (for confidence visualization)
+      const pointConfidence = point.confidence !== undefined ? point.confidence : 1.0;
+      const vertexAlpha = showConfidenceVisualization
+        ? Math.max(0.15, opacity * pointConfidence)  // Min floor of 0.15 to keep visible
+        : opacity;  // Use uniform opacity when confidence viz is off
+      alphas.push(vertexAlpha);
+
       normals.push(0, -1, 0); // Normal pointing down
       uvs.push(
         (point.x - extent.minX) / (extent.maxX - extent.minX),
@@ -219,14 +231,16 @@ export class VolumetricMeshGenerator {
 
     // Create side walls with dynamic texture scaling
     this.addSideWalls(
-      vertices, indices, colors, normals, uvs,
-      topIndices, bottomIndices, gridSize, materialColor, material
+      vertices, indices, colors, normals, uvs, alphas,
+      topIndices, bottomIndices, gridSize, materialColor, material,
+      { topSurface, bottomSurface, opacity, showConfidenceVisualization }
     );
 
     return {
       vertices: new Float32Array(vertices),
       indices: new Uint32Array(indices),
       colors: new Float32Array(colors),
+      alphas: new Float32Array(alphas),  // Per-vertex opacity based on confidence
       normals: new Float32Array(normals),
       uvs: new Float32Array(uvs),
       material,
@@ -234,7 +248,10 @@ export class VolumetricMeshGenerator {
       indexCount: indices.length,
       // CRITICAL: Store surface data for adjacency detection and overlap analysis
       topSurface,      // Keep reference to surface data
-      bottomSurface    // Keep reference to surface data
+      bottomSurface,   // Keep reference to surface data
+      // Store visualization option for regeneration
+      showConfidenceVisualization,
+      opacity
     };
   }
 
@@ -243,15 +260,31 @@ export class VolumetricMeshGenerator {
    * Add side walls to close the volume with dynamic texture scaling
    * @private
    */
-  static addSideWalls(vertices, indices, colors, normals, uvs, 
-                     topIndices, bottomIndices, gridSize, materialColor, materialType = 'UNKNOWN') {
+  static addSideWalls(vertices, indices, colors, normals, uvs, alphas,
+                     topIndices, bottomIndices, gridSize, materialColor, materialType = 'UNKNOWN',
+                     confidenceOptions = {}) {
+    const { topSurface = [], bottomSurface = [], opacity = 0.5, showConfidenceVisualization = false } = confidenceOptions;
+
+    // Helper function to calculate alpha for side wall vertices
+    const calculateSideAlpha = (surfaceIdx1, surfaceIdx2) => {
+      if (!showConfidenceVisualization) return opacity;
+      const topConf1 = topSurface[surfaceIdx1]?.confidence ?? 1.0;
+      const topConf2 = topSurface[surfaceIdx2]?.confidence ?? 1.0;
+      const bottomConf1 = bottomSurface[surfaceIdx1]?.confidence ?? 1.0;
+      const bottomConf2 = bottomSurface[surfaceIdx2]?.confidence ?? 1.0;
+      const avgConfidence = (topConf1 + topConf2 + bottomConf1 + bottomConf2) / 4;
+      return Math.max(0.15, opacity * avgConfidence);
+    };
 
     // North wall (j = 0) - ENHANCED with dynamic texture scaling
     for (let i = 0; i < gridSize - 1; i++) {
-      const t1Idx = topIndices[i * gridSize];
-      const t2Idx = topIndices[(i + 1) * gridSize];
-      const b1Idx = bottomIndices[i * gridSize];
-      const b2Idx = bottomIndices[(i + 1) * gridSize];
+      const surfaceIdx1 = i * gridSize;
+      const surfaceIdx2 = (i + 1) * gridSize;
+      const sideAlpha = calculateSideAlpha(surfaceIdx1, surfaceIdx2);
+      const t1Idx = topIndices[surfaceIdx1];
+      const t2Idx = topIndices[surfaceIdx2];
+      const b1Idx = bottomIndices[surfaceIdx1];
+      const b2Idx = bottomIndices[surfaceIdx2];
       
       // Get original vertex positions
       const t1 = [vertices[t1Idx * 3], vertices[t1Idx * 3 + 1], vertices[t1Idx * 3 + 2]];
@@ -271,27 +304,31 @@ export class VolumetricMeshGenerator {
       // Top-left vertex
       vertices.push(...t1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, 1); // North-facing normal
       uvs.push(segmentU1, 1.0);
-      
+
       // Top-right vertex
       vertices.push(...t2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, 1);
       uvs.push(segmentU2, 1.0);
-      
+
       // Bottom-left vertex
       vertices.push(...b1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, 1);
       uvs.push(segmentU1, 0.0);
-      
+
       // Bottom-right vertex
       vertices.push(...b2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, 1);
       uvs.push(segmentU2, 0.0);
-      
+
       // Create triangles using the new vertices
       indices.push(newVertexBase, newVertexBase + 2, newVertexBase + 1); // Triangle 1
       indices.push(newVertexBase + 1, newVertexBase + 2, newVertexBase + 3); // Triangle 2
@@ -300,10 +337,13 @@ export class VolumetricMeshGenerator {
     // South wall (j = gridSize - 1) - ENHANCED with dynamic texture scaling
     for (let i = 0; i < gridSize - 1; i++) {
       const j = gridSize - 1;
-      const t1Idx = topIndices[i * gridSize + j];
-      const t2Idx = topIndices[(i + 1) * gridSize + j];
-      const b1Idx = bottomIndices[i * gridSize + j];
-      const b2Idx = bottomIndices[(i + 1) * gridSize + j];
+      const surfaceIdx1 = i * gridSize + j;
+      const surfaceIdx2 = (i + 1) * gridSize + j;
+      const sideAlpha = calculateSideAlpha(surfaceIdx1, surfaceIdx2);
+      const t1Idx = topIndices[surfaceIdx1];
+      const t2Idx = topIndices[surfaceIdx2];
+      const b1Idx = bottomIndices[surfaceIdx1];
+      const b2Idx = bottomIndices[surfaceIdx2];
       
       // Get original vertex positions
       const t1 = [vertices[t1Idx * 3], vertices[t1Idx * 3 + 1], vertices[t1Idx * 3 + 2]];
@@ -323,27 +363,31 @@ export class VolumetricMeshGenerator {
       // Top-left vertex
       vertices.push(...t1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, -1); // South-facing normal
       uvs.push(segmentU1, 1.0);
-      
+
       // Top-right vertex
       vertices.push(...t2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, -1);
       uvs.push(segmentU2, 1.0);
-      
+
       // Bottom-left vertex
       vertices.push(...b1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, -1);
       uvs.push(segmentU1, 0.0);
-      
+
       // Bottom-right vertex
       vertices.push(...b2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(0, 0, -1);
       uvs.push(segmentU2, 0.0);
-      
+
       // Create triangles for South wall (reverse winding order)
       indices.push(newVertexBase, newVertexBase + 1, newVertexBase + 2); // Triangle 1
       indices.push(newVertexBase + 1, newVertexBase + 3, newVertexBase + 2); // Triangle 2
@@ -351,10 +395,13 @@ export class VolumetricMeshGenerator {
 
     // West wall (i = 0) - ENHANCED with dynamic texture scaling
     for (let j = 0; j < gridSize - 1; j++) {
-      const t1Idx = topIndices[j];
-      const t2Idx = topIndices[j + 1];
-      const b1Idx = bottomIndices[j];
-      const b2Idx = bottomIndices[j + 1];
+      const surfaceIdx1 = j;
+      const surfaceIdx2 = j + 1;
+      const sideAlpha = calculateSideAlpha(surfaceIdx1, surfaceIdx2);
+      const t1Idx = topIndices[surfaceIdx1];
+      const t2Idx = topIndices[surfaceIdx2];
+      const b1Idx = bottomIndices[surfaceIdx1];
+      const b2Idx = bottomIndices[surfaceIdx2];
       
       // Get original vertex positions
       const t1 = [vertices[t1Idx * 3], vertices[t1Idx * 3 + 1], vertices[t1Idx * 3 + 2]];
@@ -374,27 +421,31 @@ export class VolumetricMeshGenerator {
       // Top-left vertex
       vertices.push(...t1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(-1, 0, 0); // West-facing normal
       uvs.push(segmentU1, 1.0);
-      
+
       // Top-right vertex
       vertices.push(...t2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(-1, 0, 0);
       uvs.push(segmentU2, 1.0);
-      
+
       // Bottom-left vertex
       vertices.push(...b1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(-1, 0, 0);
       uvs.push(segmentU1, 0.0);
-      
+
       // Bottom-right vertex
       vertices.push(...b2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(-1, 0, 0);
       uvs.push(segmentU2, 0.0);
-      
+
       // Create triangles for West wall
       indices.push(newVertexBase, newVertexBase + 1, newVertexBase + 2); // Triangle 1
       indices.push(newVertexBase + 1, newVertexBase + 3, newVertexBase + 2); // Triangle 2
@@ -403,10 +454,13 @@ export class VolumetricMeshGenerator {
     // East wall (i = gridSize - 1) - ENHANCED with dynamic texture scaling
     for (let j = 0; j < gridSize - 1; j++) {
       const i = gridSize - 1;
-      const t1Idx = topIndices[i * gridSize + j];
-      const t2Idx = topIndices[i * gridSize + j + 1];
-      const b1Idx = bottomIndices[i * gridSize + j];
-      const b2Idx = bottomIndices[i * gridSize + j + 1];
+      const surfaceIdx1 = i * gridSize + j;
+      const surfaceIdx2 = i * gridSize + j + 1;
+      const sideAlpha = calculateSideAlpha(surfaceIdx1, surfaceIdx2);
+      const t1Idx = topIndices[surfaceIdx1];
+      const t2Idx = topIndices[surfaceIdx2];
+      const b1Idx = bottomIndices[surfaceIdx1];
+      const b2Idx = bottomIndices[surfaceIdx2];
       
       // Get original vertex positions
       const t1 = [vertices[t1Idx * 3], vertices[t1Idx * 3 + 1], vertices[t1Idx * 3 + 2]];
@@ -426,33 +480,35 @@ export class VolumetricMeshGenerator {
       // Top-left vertex
       vertices.push(...t1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(1, 0, 0); // East-facing normal
       uvs.push(segmentU1, 1.0);
-      
+
       // Top-right vertex
       vertices.push(...t2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(1, 0, 0);
       uvs.push(segmentU2, 1.0);
-      
+
       // Bottom-left vertex
       vertices.push(...b1);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(1, 0, 0);
       uvs.push(segmentU1, 0.0);
-      
+
       // Bottom-right vertex
       vertices.push(...b2);
       colors.push(materialColor.r, materialColor.g, materialColor.b);
+      alphas.push(sideAlpha);
       normals.push(1, 0, 0);
       uvs.push(segmentU2, 0.0);
-      
+
       // Create triangles for East wall (reverse winding order)
       indices.push(newVertexBase, newVertexBase + 2, newVertexBase + 1); // Triangle 1
       indices.push(newVertexBase + 1, newVertexBase + 2, newVertexBase + 3); // Triangle 2
     }
-
-
   }
 
   /**
@@ -472,7 +528,7 @@ export class VolumetricMeshGenerator {
    * @param {Object} settings - Clustering settings
    * @returns {Object} Object with regional and isolated clusters
    */
-  static spatiallyClusterMaterial(layerPoints, material, settings = {}) {
+  static spatiallyClusterMaterial(layerPoints, _material, settings = {}) {
     const {
       maxClusterDistance = 15, // Maximum distance (feet) between boreholes in same cluster
       minRegionalClusterSize = 3, // Minimum boreholes for a regional formation
@@ -480,6 +536,17 @@ export class VolumetricMeshGenerator {
     } = settings;
 
     if (!enableSpatialClustering || layerPoints.length === 0) {
+      return { regionalClusters: [layerPoints], isolatedPoints: [] };
+    }
+
+    // ADAPTIVE CLUSTERING: For small datasets, skip clustering entirely
+    // Clustering is designed for large sites with distinct geological regions
+    // For <= 8 boreholes, use all points together for unified interpolation
+    const uniqueBoreholeIds = new Set(layerPoints.map(p => p.boreholeId));
+    const boreholeCount = uniqueBoreholeIds.size;
+
+    // For small datasets, skip clustering - use all points together for unified interpolation
+    if (boreholeCount <= 8) {
       return { regionalClusters: [layerPoints], isolatedPoints: [] };
     }
 
@@ -498,24 +565,23 @@ export class VolumetricMeshGenerator {
 
     const boreholes = Array.from(boreholeGroups.values());
 
-    // OPTIMIZED: Use Union-Find (Disjoint Set) data structure for O(n log n) clustering
+    // Adaptive min cluster size for small datasets
+    const effectiveMinClusterSize = boreholes.length <= 5 ? 2 : minRegionalClusterSize;
+
+    // Use Union-Find for O(n log n) clustering
     const clusters = this.optimizedSpatialClustering(boreholes, maxClusterDistance);
 
     // Classify clusters as regional vs isolated
     const regionalClusters = [];
     const isolatedPoints = [];
 
-    clusters.forEach((cluster, index) => {
+    clusters.forEach((cluster) => {
       const clusterPoints = cluster.flatMap(bh => bh.points);
-      
-      if (cluster.length >= minRegionalClusterSize) {
-        // Regional formation - multiple spatially connected boreholes
+
+      if (cluster.length >= effectiveMinClusterSize) {
         regionalClusters.push(clusterPoints);
-
       } else {
-        // Isolated occurrence - treat as individual pockets
         isolatedPoints.push(...clusterPoints);
-
       }
     });
 
@@ -586,9 +652,11 @@ export class VolumetricMeshGenerator {
         }
         
         // Calculate full Euclidean distance only if x-distance is within range
+        // CRITICAL FIX: Use position.z (N-S) not position.y (surface elevation)
+        // position = {x: E-W, y: surface elevation, z: N-S}
         const distance = Math.sqrt(
           Math.pow(current.position.x - other.position.x, 2) +
-          Math.pow(current.position.y - other.position.y, 2)
+          Math.pow(current.position.z - other.position.z, 2)
         );
         
         if (distance <= maxClusterDistance) {
@@ -1061,16 +1129,18 @@ export class VolumetricMeshGenerator {
    */
   static generateStratigraphy(boreholes, settings = {}) {
     const {
-      gridResolution = 20,
+      gridResolution = 15,  // Unified default: balanced quality/performance
       interpolationPower = 2,
       smoothingFactor = 0,
-      minThickness = 0.1,
+      // NATURAL MODE DEFAULTS: Allow realistic geological variation
+      // These can be overridden by passing interpolationStyleSettings from context
+      minThickness = 0.05,        // feet - allows thinner layers (was 0.1)
       // NEW: Geological validation options
       enableGeologicalValidation = false,
-      maxSlope = 30,
-      smoothingRadius = 1,
+      maxSlope = 45,              // degrees - allows steeper natural dips (was 30)
+      smoothingRadius = 0,        // no smoothing by default (was 1)
       enforceStratigraphicOrder = true,
-      applyLateralContinuity = true,
+      applyLateralContinuity = false, // no averaging by default (was true)
       // NEW: Advanced accuracy options
       enableAdvancedInterpolation = false,
       adaptiveMeshRefinement = false,
@@ -1084,6 +1154,8 @@ export class VolumetricMeshGenerator {
       krigingSill = 1.0,
       rbfBasisFunction = 'multiquadric',
       rbfShapeParameter = 1.0,
+      // ADAPTIVE INTERPOLATION DISTANCE
+      maxDistance = 100, // Default, but will be overridden by adaptive calculation
       // NEW: Edge case handling options
       maxGapTolerance = 10,
       enableGapBridging = true,
@@ -1100,11 +1172,24 @@ export class VolumetricMeshGenerator {
       
       // NEW: Texture settings for isolated pockets
       textureSettings = null,
-      
+
       // NEW: Spatial clustering settings for mixed (Math.abs(isolated) < EPSILON ? 0 : regional / isolated) materials
       enableSpatialClustering = true, // Enable spatial clustering to separate regional from isolated occurrences
       maxClusterDistance = 15, // Maximum distance (feet) between boreholes in same cluster
-      minRegionalClusterSize = 3 // Minimum boreholes for a regional formation
+      minRegionalClusterSize = 3, // Minimum boreholes for a regional formation
+
+      // NEW: Horizon-based interpolation with anisotropic distance (Phase 4)
+      // TEMPORARILY DISABLED: These features may cause flat surfaces - testing simpler IDW first
+      useHorizonPreprocessing = false,    // DISABLED: pinch-out handling with zero-thickness markers
+      useAnisotropicDistance = false,     // DISABLED: 3D ellipsoidal distance
+      anisotropyLx = 1.0,                 // East-West scale factor
+      anisotropyLy = 1.0,                 // North-South scale factor
+      anisotropyLz = 0.1,                 // Vertical scale (10:1 ratio)
+      horizonNeighborSearchRadius = null, // Auto-calculated from extent.avgSpacing if null
+      horizonMinNeighbors = 2,            // Minimum neighbors for IDW fallback
+
+      // NEW: Confidence visualization option
+      showConfidenceVisualization = false
     } = settings;
 
     // Extract unique material+color combinations 
@@ -1162,10 +1247,43 @@ export class VolumetricMeshGenerator {
     // Auto-enable advanced features for high-quality settings
     const useAdvancedFeatures = gridResolution >= 25 || enableAdvancedInterpolation;
     const useAdaptiveRefinement = gridResolution >= 30 || adaptiveMeshRefinement;
-    
+
     if (useAdvancedFeatures) {
 
     }
+
+    // NEW: Horizon preprocessing for pinch-out handling
+    // Inserts zero-thickness markers at stratigraphic positions for missing layers
+    let horizonMap = null;
+    if (useHorizonPreprocessing && sortedMaterials.length > 0) {
+      const effectiveSearchRadius = horizonNeighborSearchRadius || (extent.avgSpacing * 2);
+      horizonMap = HorizonPreprocessor.preprocessHorizons(
+        boreholes,
+        sortedMaterials,
+        {
+          neighborSearchRadius: effectiveSearchRadius,
+          minNeighborsForEstimate: horizonMinNeighbors,
+          pinchOutThreshold: 0.05,
+          confidenceDecayFactor: 0.7,
+          useStratigraphicPosition: true
+        }
+      );
+
+      // Log preprocessing statistics for debugging
+      const stats = HorizonPreprocessor.getPreprocessingStats(horizonMap);
+      geologicalLogger.info('Horizon preprocessing complete:', {
+        totalMaterials: stats.totalMaterials,
+        pinchOutsInserted: stats.materials.reduce((sum, m) => sum + m.stratigraphicPinchouts, 0)
+      });
+    }
+
+    // Anisotropy scale factors for 3D distance calculation
+    // Lz = 0.1 means vertical is 10x more expensive than horizontal
+    const anisotropyScales = {
+      Lx: anisotropyLx,
+      Ly: anisotropyLy,
+      Lz: anisotropyLz
+    };
 
     // Enhanced geological sequence processing with variable depth handling
     if (enableGeologicalValidation && sortedMaterials.length > 1) {
@@ -1192,13 +1310,54 @@ export class VolumetricMeshGenerator {
           const color = materialInfo?.color || 'default';
           
           // Prepare layer points with geological awareness
-          const layerPoints = [];
-          boreholes.forEach(bh => {
-            const points = bh.getLayerPointsForMaterialAndColor(material, color);
-            layerPoints.push(...points);
-          });
+          // Use augmented points from HorizonPreprocessor if available (includes zero-thickness markers)
+          let layerPoints;
+          if (horizonMap && horizonMap.has(materialData.material)) {
+            layerPoints = HorizonPreprocessor.getAugmentedLayerPoints(horizonMap, materialData.material);
+          } else {
+            layerPoints = [];
+            boreholes.forEach(bh => {
+              const points = bh.getLayerPointsForMaterialAndColor(material, color);
+              // CRITICAL: Transform points to use z (N-S) as y for grid interpolation
+              // Borehole returns {x, y: elevation, z: N-S, topZ, bottomZ}
+              // Grid expects {x: E-W, y: N-S, topZ, bottomZ}
+              const transformedPoints = points.map(p => ({
+                ...p,
+                y: p.z  // Use N-S coordinate (z) as grid Y coordinate
+              }));
+              layerPoints.push(...transformedPoints);
+            });
+          }
 
           if (layerPoints.length > 0) {
+            // DEBUG: Comprehensive logging to diagnose flatness
+            const topZValues = layerPoints.map(p => p.topZ);
+            const bottomZValues = layerPoints.map(p => p.bottomZ);
+            const topZRange = Math.max(...topZValues) - Math.min(...topZValues);
+            const bottomZRange = Math.max(...bottomZValues) - Math.min(...bottomZValues);
+
+            // Log grid coordinate spread (y = N-S for grid interpolation)
+            const gridYValues = layerPoints.map(p => p.y);
+            const gridYRange = gridYValues.length > 0 ? Math.max(...gridYValues) - Math.min(...gridYValues) : 0;
+
+            console.warn(`
+=== INTERPOLATION DIAGNOSTIC: ${materialData.material} ===
+Layer Points (${layerPoints.length}):
+${layerPoints.map(p => `  gridX=${p.x?.toFixed(1)}, gridY=${p.y?.toFixed(1)} (N-S) → topZ=${p.topZ?.toFixed(2)}, bottomZ=${p.bottomZ?.toFixed(2)}, conf=${p.confidence || 1}`).join('\n')}
+
+Grid Coordinate Spread:
+  Grid Y (N-S) range: ${gridYValues.length > 0 ? `${Math.min(...gridYValues).toFixed(1)} to ${Math.max(...gridYValues).toFixed(1)} (span: ${gridYRange.toFixed(1)})` : 'N/A'}
+${gridYRange < 1 ? '⚠️ WARNING: All points at nearly same N-S position - IDW may produce flat surfaces!' : '✓ Points spread across N-S dimension'}
+
+Layer Elevation Variation:
+  Top Z range: ${Math.min(...topZValues).toFixed(2)} to ${Math.max(...topZValues).toFixed(2)} (variation: ${topZRange.toFixed(2)})
+  Bottom Z range: ${Math.min(...bottomZValues).toFixed(2)} to ${Math.max(...bottomZValues).toFixed(2)} (variation: ${bottomZRange.toFixed(2)})
+
+${topZRange < 0.1 ? '⚠️ TOP SURFACE IS FLAT - All topZ values are the same!' : '✓ Top surface has variation'}
+${bottomZRange < 0.1 ? '⚠️ BOTTOM SURFACE IS FLAT - All bottomZ values are the same!' : '✓ Bottom surface has variation'}
+===================================================
+            `);
+
             // Use advanced interpolation if enabled
             let layerSurface;
             
@@ -1229,7 +1388,7 @@ export class VolumetricMeshGenerator {
                   {
                     methods: ['idw', 'kriging', 'rbf'],
                     power: interpolationPower,
-                    maxDistance: 100,
+                    maxDistance: maxDistance, // Use adaptive maxDistance
                     qualityThreshold: 0.7,
                     geologicalTrends
                   }
@@ -1246,21 +1405,23 @@ export class VolumetricMeshGenerator {
                   {
                     methods: this.applyGeologicalTrendsToInterpolation(geologicalTrends, ['idw', 'kriging', 'rbf']),
                     power: interpolationPower,
-                    maxDistance: 100,
+                    maxDistance: maxDistance, // Use adaptive maxDistance
                     qualityThreshold: 0.7,
                     geologicalTrends
                   }
                 );
               }
             } else {
-              // Standard interpolation
+              // Standard interpolation with optional anisotropic distance
               layerSurface = SpatialInterpolationEngine.interpolateLayerSurface(
-                layerPoints, 
-                extent, 
-                gridResolution, 
+                layerPoints,
+                extent,
+                gridResolution,
                 {
                   power: interpolationPower,
-                  maxDistance: 100
+                  maxDistance: maxDistance, // Use adaptive maxDistance from settings
+                  useAnisotropy: useAnisotropicDistance,
+                  anisotropyScales: anisotropyScales
                 }
               );
             }
@@ -1293,7 +1454,7 @@ export class VolumetricMeshGenerator {
             // Create standard volume (multi-level feature removed)
             const volume = this.createLayerVolume(
               smoothedTop, smoothedBottom, material, extent, gridResolution,
-              { opacity: settings.layerOpacity || 0.3 }
+              { opacity: settings.layerOpacity || 0.3, showConfidenceVisualization }
             );
             
             // Add color info to volume data for proper rendering
@@ -1320,34 +1481,29 @@ export class VolumetricMeshGenerator {
 
     } else {
       // Original processing for individual materials (backward compatibility)
-
-
       for (const uniqueKey of sortedMaterials) {
-        // Get material info from the map
         const materialInfo = materialColorMap.get(uniqueKey);
         if (!materialInfo) continue;
-        
+
         const { material, color } = materialInfo;
-        
-        // Collect and group layer points by continuity to handle discontinuous strata
+
+        // Collect layer points from all boreholes
         const allLayerPoints = [];
         boreholes.forEach(bh => {
           const points = bh.getLayerPointsForMaterialAndColor(material, color);
           if (points.length > 0) {
-
-            points.forEach(p => {
-
-            });
-            // Tag each point with borehole info for continuity analysis
+            // Transform points: use z (N-S) as y for grid interpolation
             points.forEach(p => {
               p.boreholeId = bh.id;
               p.boreholePosition = { x: bh.x, y: bh.y, z: bh.z };
+              p.originalY = p.y;
+              p.y = p.z;  // Use N-S coordinate for grid Y
             });
           }
           allLayerPoints.push(...points);
         });
 
-        // NEW: Spatially cluster material occurrences to separate regional formations from isolated pockets
+        // Spatially cluster material occurrences
         const { regionalClusters, isolatedPoints } = this.spatiallyClusterMaterial(allLayerPoints, material, {
           maxClusterDistance,
           minRegionalClusterSize,
@@ -1446,9 +1602,9 @@ export class VolumetricMeshGenerator {
           const hasInsufficientPresence = stratumPresenceRatio < minPresenceThreshold;
           const hasInsufficientDataPoints = layerPoints.length < minDataPoints;
           
-          // FIX: If material is present in ALL boreholes (100% presence), always treat as continuous
-          const isUniformAcrossAllBoreholes = stratumPresenceRatio >= 0.99; // Allow for floating point precision
-          
+          // If material is present in ALL boreholes (100% presence), always treat as continuous
+          const isUniformAcrossAllBoreholes = stratumPresenceRatio >= 0.99;
+
           if ((hasInsufficientPresence || hasInsufficientDataPoints) && !isUniformAcrossAllBoreholes) {
             // Handle isolated materials based on settings
             if (isolatedMaterialHandling === 'pockets' && layerPoints.length > 0) {
@@ -1544,12 +1700,6 @@ export class VolumetricMeshGenerator {
           }
 
           if (layerPoints.length >= 1) {
-
-
-          // Special handling for limited data points
-          if (layerPoints.length < 3) {
-
-          }
           
           let topSurface, bottomSurface;
           
@@ -1582,19 +1732,23 @@ export class VolumetricMeshGenerator {
             } catch (error) {
               interpolationLogger.warn(`Advanced interpolation failed for ${material}, falling back to IDW:`, error.message);
               
-              // Fallback to basic IDW
+              // Fallback to basic IDW with anisotropic distance
               const result = SpatialInterpolationEngine
                 .interpolateLayerSurface(layerPoints, extent, gridResolution, {
-                  power: interpolationPower
+                  power: interpolationPower,
+                  useAnisotropy: useAnisotropicDistance,
+                  anisotropyScales: anisotropyScales
                 });
               topSurface = result.topSurface;
               bottomSurface = result.bottomSurface;
             }
           } else {
-            // Use basic IDW interpolation
+            // Use basic IDW interpolation with optional anisotropic distance
             const result = SpatialInterpolationEngine
               .interpolateLayerSurface(layerPoints, extent, gridResolution, {
-                power: interpolationPower
+                power: interpolationPower,
+                useAnisotropy: useAnisotropicDistance,
+                anisotropyScales: anisotropyScales
               });
             topSurface = result.topSurface;
             bottomSurface = result.bottomSurface;
@@ -1614,13 +1768,13 @@ export class VolumetricMeshGenerator {
 
           const volume = this.createLayerVolume(
             smoothedTop, smoothedBottom, material, extent, gridResolution,
-            { opacity: settings.layerOpacity || 0.3 }
+            { opacity: settings.layerOpacity || 0.3, showConfidenceVisualization }
           );
-          
+
           // Add color info to volume data for proper rendering
           volume.customColor = color !== 'default' ? color : null;
           volume.uniqueKey = volumeUniqueKey; // Use sequence-specific unique key
-          
+
           // IMPORTANT: Mark as continuous volume (not a pocket)
           volume.type = 'continuous'; // Explicitly mark as continuous geological layer
           
@@ -1628,7 +1782,7 @@ export class VolumetricMeshGenerator {
           volume.confidence = layerPoints.confidence || 1.0;
           volume.gapsBridged = layerPoints.gapsBridged || false;
           
-          // CRITICAL: Store original surfaces for potential separation later
+          // Store original surfaces for potential separation later
           volume.originalTopSurface = [...smoothedTop];
           volume.originalBottomSurface = [...smoothedBottom];
 
@@ -1782,17 +1936,21 @@ export class VolumetricMeshGenerator {
       const avgDepth = (topZ + bottomZ) / 2;
       return { volume, avgDepth };
     });
-    
-    // Sort by depth ((Math.abs(most) < EPSILON ? 0 : deepest / most) negative first)
+
+    // Sort by depth (deepest/most negative first)
     volumesWithDepth.sort((a, b) => a.avgDepth - b.avgDepth);
-    
+
+    // CRITICAL FIX: Stitch adjacent layers to eliminate gaps
+    // After sorting, volumesWithDepth[0] is deepest, volumesWithDepth[N-1] is shallowest
+    // Each shallower layer's bottom should match the deeper layer's top
+    this.stitchAdjacentLayers(volumesWithDepth);
+
     // Assign render orders: deepest = -1.4, shallowest = -1.1 (all below site map at 0)
     volumesWithDepth.forEach((item, index) => {
       const renderOrder = -1.4 + (index * 0.1); // -1.4, -1.3, -1.2, -1.1
       item.volume.renderOrderOffset = renderOrder + 1; // Convert to offset from base -1
-
     });
-    
+
     return volumes;
   }
 
@@ -1820,6 +1978,100 @@ export class VolumetricMeshGenerator {
   }
 
   /**
+   * Stitch adjacent layers to eliminate gaps between strata
+   * Makes each shallower layer's bottom surface match the deeper layer's top surface
+   *
+   * @param {Array} volumesWithDepth - Array of {volume, avgDepth} sorted by depth (deepest first)
+   */
+  static stitchAdjacentLayers(volumesWithDepth) {
+    if (volumesWithDepth.length < 2) return;
+
+    // volumesWithDepth[0] is deepest, volumesWithDepth[N-1] is shallowest
+    // We iterate from deepest to shallowest, stitching each pair
+    for (let i = 0; i < volumesWithDepth.length - 1; i++) {
+      const deeperVolume = volumesWithDepth[i].volume;
+      const shallowerVolume = volumesWithDepth[i + 1].volume;
+
+      // Skip if either volume is missing surface data or is a pocket/isolated
+      if (!deeperVolume.topSurface || !shallowerVolume.bottomSurface) {
+        continue;
+      }
+      if (deeperVolume.type === 'pocket' || shallowerVolume.type === 'pocket') {
+        continue;
+      }
+
+      // Check if surfaces have matching grid points (same resolution)
+      if (deeperVolume.topSurface.length !== shallowerVolume.bottomSurface.length) {
+        geologicalLogger.warn(`Cannot stitch layers: mismatched surface sizes (${deeperVolume.topSurface.length} vs ${shallowerVolume.bottomSurface.length})`);
+        continue;
+      }
+
+      // Calculate average gap to decide if stitching is needed
+      let totalGap = 0;
+      let gapCount = 0;
+      for (let j = 0; j < deeperVolume.topSurface.length; j++) {
+        const deeperTop = deeperVolume.topSurface[j].z;
+        const shallowerBottom = shallowerVolume.bottomSurface[j].z;
+        // Gap is positive if there's space between layers (shallowerBottom > deeperTop in negative coords)
+        const gap = shallowerBottom - deeperTop;
+        if (gap > 0) {
+          totalGap += gap;
+          gapCount++;
+        }
+      }
+
+      // Only stitch if there's a meaningful gap (avg > 0.1 ft)
+      const avgGap = gapCount > 0 ? totalGap / gapCount : 0;
+      if (avgGap < 0.1) {
+        continue; // Gap is negligible, no stitching needed
+      }
+
+      geologicalLogger.debug(`Stitching layers: ${deeperVolume.material} -> ${shallowerVolume.material}, avg gap: ${avgGap.toFixed(2)} ft`);
+
+      // Stitch by adjusting the shallower layer's bottom to match the deeper layer's top
+      // This preserves the deeper layer's interpolation and adjusts the shallower one
+      for (let j = 0; j < shallowerVolume.bottomSurface.length; j++) {
+        const deeperTopZ = deeperVolume.topSurface[j].z;
+        const shallowerBottomZ = shallowerVolume.bottomSurface[j].z;
+        const gap = shallowerBottomZ - deeperTopZ;
+
+        if (gap > 0) {
+          // === CONFIDENCE PENALTY: Larger gaps = more inference = lower confidence ===
+          // Gap-proportional penalty: 0.1ft gap = 30% penalty, 2ft gap = 70% penalty
+          const maxPenaltyGap = 2.0;  // 2ft gap = maximum penalty
+          const normalizedGap = Math.min(1.0, gap / maxPenaltyGap);
+          const confidencePenalty = 0.3 + (normalizedGap * 0.4);  // 30-70% range
+
+          // Get existing confidence from interpolation (default to 1.0 if not present)
+          const existingBottomConf = shallowerVolume.bottomSurface[j].confidence ?? 1.0;
+          const existingTopConf = shallowerVolume.topSurface[j].confidence ?? 1.0;
+
+          // === EXISTING: Distribute the gap correction ===
+          shallowerVolume.bottomSurface[j].z = deeperTopZ;
+
+          // === NEW: Apply confidence penalty to bottom surface ===
+          shallowerVolume.bottomSurface[j].confidence = existingBottomConf * (1 - confidencePenalty);
+          shallowerVolume.bottomSurface[j].isStitched = true;
+
+          // Also adjust top surface proportionally to maintain layer thickness
+          const originalThickness = shallowerVolume.topSurface[j].z - shallowerBottomZ;
+          if (originalThickness > 0.1) { // Only preserve thickness if significant
+            shallowerVolume.topSurface[j].z = deeperTopZ + originalThickness;
+
+            // === NEW: Apply reduced penalty to top surface (half, since less affected) ===
+            shallowerVolume.topSurface[j].confidence = existingTopConf * (1 - confidencePenalty * 0.5);
+            shallowerVolume.topSurface[j].isStitched = true;
+          }
+        }
+      }
+
+      // Mark both volumes as stitched for debugging
+      deeperVolume.stitchedAbove = shallowerVolume.material;
+      shallowerVolume.stitchedBelow = deeperVolume.material;
+    }
+  }
+
+  /**
    * Regenerate volume geometry after surface separation
    * @param {Object} volume - Volume object with modified surfaces
    * @param {Object} extent - Site extent bounds
@@ -1830,21 +2082,26 @@ export class VolumetricMeshGenerator {
       validationLogger.warn('Cannot regenerate geometry: volume missing required data');
       return;
     }
-    
+
     // Recreate the volume mesh with the modified surfaces
+    // Use stored options from original volume creation
     const newVolumeData = this.createLayerVolume(
-      volume.topSurface, 
-      volume.bottomSurface, 
-      volume.material, 
-      extent, 
+      volume.topSurface,
+      volume.bottomSurface,
+      volume.material,
+      extent,
       gridResolution,
-      { opacity: 0.3 }
+      {
+        opacity: volume.opacity || 0.3,
+        showConfidenceVisualization: volume.showConfidenceVisualization || false
+      }
     );
-    
+
     // Replace the old geometry data with the new separated geometry
     volume.vertices = newVolumeData.vertices;
     volume.indices = newVolumeData.indices;
     volume.colors = newVolumeData.colors;
+    volume.alphas = newVolumeData.alphas;  // Include alphas for confidence visualization
     volume.normals = newVolumeData.normals;
     volume.uvs = newVolumeData.uvs;
     volume.vertexCount = newVolumeData.vertexCount;
@@ -3001,9 +3258,10 @@ export class VolumetricMeshGenerator {
   static createThreeJsMesh(volumeData, settings = {}, textureManager = null, textureSettings = null, customColor = null, exportMode = false) {
     const {
       opacity = 0.8,
-      wireframe = false
+      wireframe = false,
+      showConfidenceVisualization = false  // Per-vertex alpha based on confidence
       // Texture settings handled by textureSettings parameter
-      // enableTextures = true, // Always enable textures by default  
+      // enableTextures = true, // Always enable textures by default
       // textureOptions = {}
     } = settings;
 
@@ -3013,7 +3271,13 @@ export class VolumetricMeshGenerator {
     geometry.setAttribute('color', new BufferAttribute(volumeData.colors, 3));
     geometry.setAttribute('normal', new BufferAttribute(volumeData.normals, 3));
     geometry.setAttribute('uv', new BufferAttribute(volumeData.uvs, 2));
-    
+
+    // Add per-vertex alpha attribute if confidence visualization is enabled
+    const useConfidenceViz = showConfidenceVisualization && volumeData.alphas;
+    if (useConfidenceViz) {
+      geometry.setAttribute('alpha', new BufferAttribute(volumeData.alphas, 1));
+    }
+
     // CRITICAL FIX: Create BufferAttribute for indices
     geometry.setIndex(new BufferAttribute(volumeData.indices, 1));
 
@@ -3084,9 +3348,12 @@ export class VolumetricMeshGenerator {
       opacity: finalOpacity,
       wireframe: wireframe, // Keep original wireframe setting, no enhancement override
       wireframeLinewidth: wireframe ? 1.5 : 1,
-      // Enhanced transparency settings for better internal visibility
+      // Enhanced transparency settings for proper alpha blending
+      // depthWrite = false prevents semi-transparent layers from blocking layers behind
+      // Combined with manual render order sorting in ThreeJsContext, this prevents striping
       alphaTest: 0.01,
-      depthWrite: finalOpacity > 0.8, // Only write depth when mostly solid
+      depthWrite: finalOpacity > 0.9, // Only write depth when nearly opaque (striping fix)
+      depthTest: true, // Always test against depth buffer
       blending: NormalBlending,
       // Enhanced self-illumination for visual distinction
       emissive: new Color().setRGB(
@@ -3137,12 +3404,42 @@ export class VolumetricMeshGenerator {
       roughness: 0.8,  // Add realistic roughness for geological materials
       metalness: 0.0   // Geological materials are non-metallic
     });
-    
+
+    // Apply per-vertex alpha via shader modification for confidence visualization
+    if (useConfidenceViz) {
+      material.onBeforeCompile = (shader) => {
+        // === VERTEX SHADER: Pass alpha attribute to fragment shader ===
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <common>',
+          `#include <common>
+           attribute float alpha;
+           varying float vAlpha;`
+        );
+        shader.vertexShader = shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+           vAlpha = alpha;`
+        );
+
+        // === FRAGMENT SHADER: Apply per-vertex alpha to final color ===
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <common>',
+          `#include <common>
+           varying float vAlpha;`
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <dithering_fragment>',
+          `#include <dithering_fragment>
+           gl_FragColor.a *= vAlpha;`
+        );
+      };
+      material.needsUpdate = true;
+    }
+
     // CRITICAL: Ensure proper texture orientation for vertical walls
     if (material.map) {
       // Force texture to update and optimize for vertical display
       material.needsUpdate = true;
-
     }
 
     // Create mesh
@@ -3849,7 +4146,7 @@ export class VolumetricMeshGenerator {
    */
   static async generateTexturedStratigraphy(boreholes, extent, options = {}) {
     const {
-      gridResolution = 25,
+      gridResolution = 15,  // Unified default: balanced quality/performance
       interpolationMethod = 'idw',
       textureManager = null,
       textureOptions = {},

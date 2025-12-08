@@ -14,7 +14,7 @@ const LayerEditorSection = ({ isOpen, onToggle }) => {
     addLayer,
     removeLayer
   } = useLayers();
-  
+
   const [isHoveringButton, setIsHoveringButton] = useState({
     add: false,
     remove: false
@@ -30,7 +30,7 @@ const LayerEditorSection = ({ isOpen, onToggle }) => {
       {layers.length > 0 ? (
         <>
           <ViewModeControls />
-          
+
           <div className="action-button-container">
             <button
               onClick={addLayer}
@@ -40,7 +40,7 @@ const LayerEditorSection = ({ isOpen, onToggle }) => {
             >
               Add Layer
             </button>
-            
+
             <button
               onClick={() => removeLayer(activeLayerIndex)}
               className={`action-button ${layers.length <= 0 ? 'remove-button-disabled' : 'remove-button'} ${layers.length > 0 && isHoveringButton.remove ? 'remove-button-hover' : ''}`}
@@ -51,12 +51,12 @@ const LayerEditorSection = ({ isOpen, onToggle }) => {
               Remove Layer
             </button>
           </div>
-          
+
           <div style={{ marginBottom: '16px' }}>
             <label className="layer-selector-label">
               Select Layer: (Layer {activeLayerIndex + 1} selected)
             </label>
-            
+
             <div className="layer-selector-grid" role="radiogroup" aria-label="Layer selector">
               {layers.map((layer, index) => (
                 <div
@@ -75,7 +75,7 @@ const LayerEditorSection = ({ isOpen, onToggle }) => {
               ))}
             </div>
           </div>
-          
+
           {layers[activeLayerIndex] && (
             <LayerControls
               layer={layers[activeLayerIndex]}

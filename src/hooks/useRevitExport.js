@@ -39,7 +39,7 @@ import { useState, useCallback, useRef, useEffect, useContext, useMemo } from 'r
 
 // Context imports following established patterns
 import { useExportOrchestration, EXPORT_FORMATS } from '../contexts/ExportContext.js';
-import { useGeologicalModeling } from '../contexts/OptimizedGeologicalModelingContext.js';
+import { useGeologicalModeling } from '../contexts/GeologicalModelingContext.js';
 import { useBoreholes } from '../contexts/BoreholeContext.js';
 import { useDisplayOptions } from '../contexts/DisplayOptionsContext.js';
 // Note: useThreeJsScene is commented out - using ThreeJsContext directly

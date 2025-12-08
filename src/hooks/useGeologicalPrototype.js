@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useBoreholes } from '../contexts/BoreholeContext';
-import { useGeologicalModeling } from '../contexts/OptimizedGeologicalModelingContext';
+import { useGeologicalModeling } from '../contexts/GeologicalModelingContext';
 import { Logger } from '../utils/Logger.js';
 
 const logger = new Logger().withContext('useGeologicalPrototype');
@@ -11,16 +11,16 @@ const logger = new Logger().withContext('useGeologicalPrototype');
  */
 export function useGeologicalPrototype() {
   const { boreholes } = useBoreholes();
-  const { 
-    modelingMode, 
+  const {
+    modelingMode,
     modelingSettings,
-    prototypeResult, 
-    prototypeError, 
-    setPrototypeState, 
+    prototypeResult,
+    prototypeError,
+    setPrototypeState,
     clearPrototypeState,
     INTERPOLATION_METHODS
   } = useGeologicalModeling();
-  
+
   // State management (local to hook)
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(null);
@@ -67,7 +67,7 @@ export function useGeologicalPrototype() {
             break;
 
           default:
-            // Unknown message type from worker
+          // Unknown message type from worker
         }
       };
 
@@ -99,14 +99,14 @@ export function useGeologicalPrototype() {
 
   // Generate geological model
   const generateModel = useCallback(async () => {
-    
+
     // Add a small delay to ensure context updates have propagated
     await new Promise(resolve => setTimeout(resolve, 50));
-    
+
     // TEMPORARY: Bypass web worker and run on main thread for debugging
 
     if (modelingMode !== 'data-driven') {
-      setPrototypeState(null, { 
+      setPrototypeState(null, {
         message: 'Data-driven mode required for geological modeling. Current mode: ' + modelingMode,
         timestamp: new Date().toISOString()
       });
@@ -114,7 +114,7 @@ export function useGeologicalPrototype() {
     }
 
     if (boreholes.length < 3) {
-      setPrototypeState(null, { 
+      setPrototypeState(null, {
         message: `At least 3 boreholes required for interpolation. Found: ${boreholes.length}`,
         timestamp: new Date().toISOString()
       });
@@ -125,7 +125,7 @@ export function useGeologicalPrototype() {
     const validBoreholes = boreholes.filter(bh => bh.layers && bh.layers.length > 0);
     if (validBoreholes.length < 3) {
       const boreholeInfo = boreholes.map(bh => `${bh.name}: ${bh.layers?.length || 0} layers`).join(', ');
-      setPrototypeState(null, { 
+      setPrototypeState(null, {
         message: `At least 3 boreholes must have geological layer data. Found: ${validBoreholes.length} valid of ${boreholes.length} total. Boreholes: [${boreholeInfo}]. Manually created boreholes need layer data added via the Advanced panel.`,
         timestamp: new Date().toISOString()
       });
@@ -153,19 +153,19 @@ export function useGeologicalPrototype() {
     // Run geological processing on main thread
     try {
       const startTime = performance.now();
-      
+
       // Use selected method directly (no auto-selection)
       let selectedMethod = modelingSettings.interpolationMethod || 'idw';
-      let methodReasoning = selectedMethod === 'kriging' 
+      let methodReasoning = selectedMethod === 'kriging'
         ? 'Statistical interpolation with uncertainty estimates'
         : 'Realistic geological interpolation preserving detail';
-      
+
       // Determine which interpolation system to use based on selected method
       const useAdvancedInterpolation = selectedMethod === INTERPOLATION_METHODS.KRIGING;
 
       // Import the appropriate utilities
       let interpolateLayerFn, extractUniqueMaterialsFn;
-      
+
       if (useAdvancedInterpolation) {
         const advanced = await import('../utils/advancedGeologicalInterpolation.js');
         interpolateLayerFn = advanced.interpolateLayerAdvanced;
@@ -173,13 +173,13 @@ export function useGeologicalPrototype() {
 
       } else {
         const basic = await import('../utils/simpleIdw.js');
-        interpolateLayerFn = basic.interpolateLayer;  
+        interpolateLayerFn = basic.interpolateLayer;
         extractUniqueMaterialsFn = basic.extractUniqueMaterials;
 
       }
-      
+
       // Mesh builder will be imported conditionally based on interpolation method
-      
+
       const serializableBoreholes = validBoreholes.map(borehole => ({
         id: borehole.id,
         name: borehole.name,
@@ -193,7 +193,7 @@ export function useGeologicalPrototype() {
       }));
 
       setProgress({ step: 'Analyzing geological layers...', progress: 10 });
-      
+
       const uniqueMaterials = extractUniqueMaterialsFn(serializableBoreholes);
 
       if (uniqueMaterials.length === 0) {
@@ -216,18 +216,18 @@ export function useGeologicalPrototype() {
 
         try {
           // Pass modeling settings to advanced interpolation if using advanced methods
-          const effectiveSettings = useAdvancedInterpolation 
+          const effectiveSettings = useAdvancedInterpolation
             ? { ...modelingSettings, interpolationMethod: selectedMethod }
             : modelingSettings;
-            
-          const interpolatedGrid = useAdvancedInterpolation 
+
+          const interpolatedGrid = useAdvancedInterpolation
             ? interpolateLayerFn(serializableBoreholes, material, siteExtent, gridSize, effectiveSettings)
             : interpolateLayerFn(serializableBoreholes, material, siteExtent, gridSize);
-            
+
           if (!interpolatedGrid) {
             throw new Error(`No interpolation result for ${material}`);
           }
-          
+
           // Use enhanced mesh builder for advanced interpolation methods
           let meshData;
           if (useAdvancedInterpolation) {
@@ -250,7 +250,7 @@ export function useGeologicalPrototype() {
             const confidenceValues = interpolatedGrid
               .filter(point => point.confidence !== undefined)
               .map(point => point.confidence);
-              
+
             if (confidenceValues.length > 0) {
               qualityMetrics = {
                 avgConfidence: confidenceValues.reduce((sum, val) => sum + val, 0) / confidenceValues.length,
@@ -294,12 +294,12 @@ export function useGeologicalPrototype() {
         interpolationMethod: modelingSettings.interpolationMethod,
         enableConfidenceMapping: false // Removed from UI - not functional
       };
-      
+
       if (useAdvancedInterpolation) {
-        const layersWithConfidence = processedLayers.filter(layer => 
+        const layersWithConfidence = processedLayers.filter(layer =>
           layer.interpolationQuality.avgConfidence !== undefined
         );
-        
+
         if (layersWithConfidence.length > 0) {
           interpolationStats.overallAvgConfidence = layersWithConfidence
             .reduce((sum, layer) => sum + layer.interpolationQuality.avgConfidence, 0) / layersWithConfidence.length;
@@ -346,7 +346,7 @@ export function useGeologicalPrototype() {
       setIsProcessing(false);
       setProgress(null);
     }
-    
+
     return; // Main thread processing complete - skip original web worker code
   }, [boreholes, modelingMode, workerReady, setPrototypeState]);
 
@@ -430,7 +430,7 @@ export function useGeologicalPrototype() {
   // Make generateModel available globally for testing
   useEffect(() => {
     window.generateGeologicalModel = generateModel;
-    
+
     // Cleanup function to remove global assignment
     return () => {
       delete window.generateGeologicalModel;
@@ -468,8 +468,8 @@ function calculateSiteExtent(boreholes) {
     return { minX: -10, maxX: 10, minY: -10, maxY: 10, width: 20, height: 20 };
   }
 
-  const positions = boreholes.map(bh => ({ 
-    x: bh.x || 0, 
+  const positions = boreholes.map(bh => ({
+    x: bh.x || 0,
     y: bh.z || 0  // Use Z coordinate for horizontal positioning
   }));
 
@@ -508,14 +508,14 @@ function reconstructTypedArrays(result) {
 
   const reconstructedLayers = result.layers.map(layer => {
     const meshData = layer.meshData;
-    
+
     // Log the current state of mesh data
 
     // Log what we received from worker before reconstruction
 
     // Try to reconstruct typed arrays from whatever we received
     let reconstructedVertices, reconstructedFaces, reconstructedColors, reconstructedUvs;
-    
+
     try {
       // If it's already a typed array, keep it; if it's an ArrayBuffer, construct from it; if it's an object, try to construct from it
       if (meshData.vertices instanceof Float32Array) {
@@ -575,7 +575,7 @@ function reconstructTypedArrays(result) {
       colors: reconstructedColors,
       uvs: reconstructedUvs
     };
-    
+
     // Validate reconstruction
 
     return {
@@ -583,7 +583,7 @@ function reconstructTypedArrays(result) {
       meshData: reconstructedMeshData
     };
   });
-  
+
   return {
     ...result,
     layers: reconstructedLayers
@@ -604,7 +604,7 @@ function validateSpatialDistribution(boreholes) {
   }
 
   // Check for duplicate positions (within 0.1 units) - use X,Z coordinates for horizontal plane
-  const positions = boreholes.map(bh => ({ 
+  const positions = boreholes.map(bh => ({
     x: Math.round((bh.x || 0) * 10) / 10,
     z: Math.round((bh.z || 0) * 10) / 10,
     y: bh.y || 0, // Keep Y for display but don't use for spatial validation
@@ -628,8 +628,8 @@ function validateSpatialDistribution(boreholes) {
   if (positions.length >= 3) {
     const [p1, p2, p3] = positions;
     const area = Math.abs(
-      p1.x * (p2.z - p3.z) + 
-      p2.x * (p3.z - p1.z) + 
+      p1.x * (p2.z - p3.z) +
+      p2.x * (p3.z - p1.z) +
       p3.x * (p1.z - p2.z)
     ) / 2;
 

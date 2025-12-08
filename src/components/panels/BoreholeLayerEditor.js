@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useStratigraphy } from '../../contexts/StratigraphyContext';
 import { validateLayerData } from '../../utils/geologicalValidation';
+import { handleWholeUnitScroll, handleWholeUnitKeyboard } from '../../utils/numericInputHelpers';
 import {
   DndContext,
   closestCenter,
@@ -19,7 +20,6 @@ import {
   restrictToVerticalAxis,
   restrictToWindowEdges,
 } from '@dnd-kit/modifiers';
-// import { SortableItem } from './SortableLayerItem'; // Not used in new layout
 import './BoreholeLayerEditor.css';
 
 const MATERIAL_TYPES = {
@@ -51,10 +51,8 @@ const BoreholeLayerEditor = ({
   } = useStratigraphy();
   
   const [editingLayers, setEditingLayers] = useState(layers);
-  // const [activeId, setActiveId] = useState(null); // Not used in new layout
   const [errors, setErrors] = useState({});
   const [warnings, setWarnings] = useState({});
-  // const [suggestions, setSuggestions] = useState({}); // Not used in new layout
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -112,57 +110,43 @@ const BoreholeLayerEditor = ({
     });
   }, [editingLayers, onValidationChange, validateSequence]);
 
-  // const handleDragStart = (event) => {
-  //   setActiveId(event.active.id);
-  // };
-
-  // const handleDragEnd = (event) => {
-  //   const { active, over } = event;
-  //   setActiveId(null);
-
-  //   if (active.id !== over?.id) {
-  //     const oldIndex = editingLayers.findIndex((layer) => layer.id === active.id);
-  //     const newIndex = editingLayers.findIndex((layer) => layer.id === over.id);
-      
-  //     const reorderedLayers = arrayMove(editingLayers, oldIndex, newIndex);
-  //     setEditingLayers(reorderedLayers);
-  //     onLayersChange?.(reorderedLayers);
-  //   }
-  // };
+  // Round to 1 decimal place (0.1 ft precision)
+  const roundDepth = (value) => Math.round(value * 10) / 10;
 
   const handleLayerChange = useCallback((index, field, value) => {
     if (readonly) return;
-    
+
     const updatedLayers = [...editingLayers];
     const layer = { ...updatedLayers[index] };
-    
+
     if (field === 'material') {
       const normalizedMaterial = normalizeMaterial(value);
       layer.material = normalizedMaterial;
       recordMaterialUsage(normalizedMaterial);
     } else if (field === 'from' || field === 'to' || field === 'depthFrom' || field === 'depthTo') {
-      const numValue = parseFloat(value);
+      let numValue = parseFloat(value);
       if (!isNaN(numValue)) {
+        numValue = roundDepth(numValue); // Round to avoid floating point precision issues
         layer[field] = numValue;
         // Update both naming conventions
         if (field === 'from') {
           layer.depthFrom = numValue;
-          layer.thickness = layer.to - numValue;
+          layer.thickness = roundDepth(layer.to - numValue);
         } else if (field === 'to') {
           layer.depthTo = numValue;
-          layer.thickness = numValue - layer.from;
+          layer.thickness = roundDepth(numValue - layer.from);
         } else if (field === 'depthFrom') {
           layer.from = numValue;
-          layer.thickness = layer.depthTo - numValue;
+          layer.thickness = roundDepth(layer.depthTo - numValue);
         } else if (field === 'depthTo') {
           layer.to = numValue;
-          layer.thickness = numValue - layer.depthFrom;
+          layer.thickness = roundDepth(numValue - layer.depthFrom);
         }
       }
     } else {
       layer[field] = value;
     }
-    
+
     updatedLayers[index] = layer;
     setEditingLayers(updatedLayers);
     onLayersChange?.(updatedLayers);
@@ -170,30 +154,33 @@ const BoreholeLayerEditor = ({
 
   const addLayer = () => {
     if (readonly) return;
-    
+
     const lastLayer = editingLayers[editingLayers.length - 1];
-    let newFrom = lastLayer ? (lastLayer.to || lastLayer.depthTo || 0) : 0;
-    let newTo = Math.min(newFrom + 1, totalDepth);
-    
+    let newFrom = roundDepth(lastLayer ? (lastLayer.to || lastLayer.depthTo || 0) : 0);
+    let newTo = roundDepth(Math.min(newFrom + 1, totalDepth));
+
     // If we're at the total depth, adjust the last layer to make room
     if (newFrom >= totalDepth && editingLayers.length > 0) {
       const adjustedLayers = [...editingLayers];
       const lastLayerIndex = adjustedLayers.length - 1;
       const availableDepth = totalDepth - (adjustedLayers[lastLayerIndex].from || adjustedLayers[lastLayerIndex].depthFrom || 0);
-      const layerDepth = Math.max(0.5, availableDepth / 2); // At least 0.5m per layer
-      
+      const layerDepth = roundDepth(Math.max(0.5, availableDepth / 2)); // At least 0.5 ft per layer
+
+      const fromDepth = adjustedLayers[lastLayerIndex].from || adjustedLayers[lastLayerIndex].depthFrom || 0;
+      const toDepth = roundDepth(fromDepth + layerDepth);
+
       adjustedLayers[lastLayerIndex] = {
         ...adjustedLayers[lastLayerIndex],
-        to: (adjustedLayers[lastLayerIndex].from || adjustedLayers[lastLayerIndex].depthFrom || 0) + layerDepth,
-        depthTo: (adjustedLayers[lastLayerIndex].from || adjustedLayers[lastLayerIndex].depthFrom || 0) + layerDepth,
-        thickness: layerDepth
+        to: toDepth,
+        depthTo: toDepth,
+        thickness: roundDepth(layerDepth)
       };
-      
-      newFrom = adjustedLayers[lastLayerIndex].to || adjustedLayers[lastLayerIndex].depthTo;
-      newTo = totalDepth;
+
+      newFrom = roundDepth(adjustedLayers[lastLayerIndex].to || adjustedLayers[lastLayerIndex].depthTo);
+      newTo = roundDepth(totalDepth);
       setEditingLayers(adjustedLayers);
     }
-    
+
     const newLayer = {
       id: Date.now().toString() + Math.random(),
       from: newFrom,
@@ -201,12 +188,12 @@ const BoreholeLayerEditor = ({
       depthFrom: newFrom,
       depthTo: newTo,
       material: 'SAND',
-      thickness: newTo - newFrom,
+      thickness: roundDepth(newTo - newFrom),
       description: '',
       density: 1.8,
       porosity: 0.3
     };
-    
+
     const updatedLayers = [...editingLayers, newLayer];
     setEditingLayers(updatedLayers);
     onLayersChange?.(updatedLayers);
@@ -219,33 +206,6 @@ const BoreholeLayerEditor = ({
     setEditingLayers(updatedLayers);
     onLayersChange?.(updatedLayers);
   };
-
-  // const handleAutoFill = useCallback(() => {
-  //   if (readonly) return;
-  //   
-  //   const updatedLayers = [...editingLayers];
-  //   let currentDepth = 0;
-  //   
-  //   updatedLayers.forEach((layer, index) => {
-  //     layer.from = currentDepth;
-  //     layer.depthFrom = currentDepth;
-  //     layer.to = index === updatedLayers.length - 1 ? totalDepth : currentDepth + layer.thickness;
-  //     layer.depthTo = layer.to;
-  //     currentDepth = layer.to;
-  //   });
-  //   
-  //   setEditingLayers(updatedLayers);
-  //   onLayersChange?.(updatedLayers);
-  // }, [editingLayers, totalDepth, readonly, onLayersChange]);
-
-  // const handleMaterialSuggestion = useCallback((index, input) => {
-  //   if (input.length > 0) {
-  //     const materialSuggestions = getMaterialSuggestions(input);
-  //     setSuggestions(prev => ({ ...prev, [index]: materialSuggestions }));
-  //   } else {
-  //     setSuggestions(prev => ({ ...prev, [index]: [] }));
-  //   }
-  // }, [getMaterialSuggestions]);
 
   const getMaterialColor = useCallback((material) => {
     const props = getMaterialProps(material);
@@ -261,22 +221,6 @@ const BoreholeLayerEditor = ({
     return 'valid';
   }, [errors, warnings]);
 
-  // const getValidationState = (layerIndex, field) => {
-  //   const layerValidation = validation[layerIndex];
-  //   if (!layerValidation) return 'valid';
-  //   
-  //   if (layerValidation.errors && layerValidation.errors[field]) return 'error';
-  //   if (layerValidation.warnings && layerValidation.warnings[field]) return 'warning';
-  //   return 'valid';
-  // };
-
-  // const getValidationMessage = (layerIndex, field) => {
-  //   const layerValidation = validation[layerIndex];
-  //   if (!layerValidation) return null;
-  //   
-  //   return layerValidation.errors?.[field] || layerValidation.warnings?.[field] || null;
-  // };
-
   return (
     <div className={`borehole-layer-editor ${className}`}>
       <DndContext
@@ -287,7 +231,6 @@ const BoreholeLayerEditor = ({
         <SortableContext items={editingLayers.map(layer => layer.id)} strategy={verticalListSortingStrategy}>
           <div className="layer-cards-list">
             {editingLayers.map((layer, index) => {
-              // const status = getLayerStatus(index); // Not used in new layout
               const materialColor = getMaterialColor(layer.material);
               const isAutoFrom = index > 0; // First layer always starts at 0, others auto-calculate
               
@@ -313,7 +256,7 @@ const BoreholeLayerEditor = ({
                         </div>
                         <h4 className="layer-title">
                           <span className="layer-name">Layer {index + 1}</span>
-                          <span className="layer-thickness-info">{thickness.toFixed(1)}m thick</span>
+                          <span className="layer-thickness-info">{thickness.toFixed(1)} ft thick</span>
                         </h4>
                       </div>
                       {editingLayers.length > 1 && (
@@ -362,14 +305,16 @@ const BoreholeLayerEditor = ({
                               type="number"
                               value={layer.from || layer.depthFrom || 0}
                               onChange={(e) => handleLayerChange(index, 'from', e.target.value)}
+                              onWheel={(e) => handleWholeUnitScroll(e, (val) => handleLayerChange(index, 'from', val), { min: 0, max: totalDepth })}
+                              onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => handleLayerChange(index, 'from', val), { min: 0, max: totalDepth })}
                               className="depth-input-inline"
-                              step="0.1"
+                              step="1"
                               min="0"
                               max={totalDepth}
                               disabled={isAutoFrom}
                               placeholder="0.0"
                             />
-                            <span className="depth-suffix">m</span>
+                            <span className="depth-suffix">ft</span>
                           </div>
                           
                           <div className="depth-arrow">
@@ -384,13 +329,15 @@ const BoreholeLayerEditor = ({
                               type="number"
                               value={layer.to || layer.depthTo || 0}
                               onChange={(e) => handleLayerChange(index, 'to', e.target.value)}
+                              onWheel={(e) => handleWholeUnitScroll(e, (val) => handleLayerChange(index, 'to', val), { min: 0, max: totalDepth })}
+                              onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => handleLayerChange(index, 'to', val), { min: 0, max: totalDepth })}
                               className="depth-input-inline"
-                              step="0.1"
+                              step="1"
                               min="0"
                               max={totalDepth}
                               placeholder="0.0"
                             />
-                            <span className="depth-suffix">m</span>
+                            <span className="depth-suffix">ft</span>
                           </div>
                         </div>
                       </div>

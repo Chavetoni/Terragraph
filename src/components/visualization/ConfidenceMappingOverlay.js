@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useGeologicalModeling } from '../../contexts/OptimizedGeologicalModelingContext';
+import { useGeologicalModeling } from '../../contexts/GeologicalModelingContext';
 import { BufferGeometry, Color, DoubleSide, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import { Logger } from '../../utils/Logger.js';
 
@@ -55,13 +55,13 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
             maxConfidence: layer.interpolationQuality.maxConfidence,
             confidencePoints: layer.interpolationQuality.confidencePoints || 0
           };
-          
+
           stats.layerStats.set(layer.material, layerStats);
-          
+
           // Add to overall statistics
           totalConfidence += layer.interpolationQuality.avgConfidence * layerStats.confidencePoints;
           pointCount += layerStats.confidencePoints;
-          
+
           // Categorize confidence level
           const confidence = layer.interpolationQuality.avgConfidence;
           if (confidence >= 0.9) stats.confidenceDistribution.excellent++;
@@ -120,10 +120,10 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
       for (let j = 0; j < gridSize; j++) {
         const x = minX + (i + 0.5) * cellWidth;
         const z = minY + (j + 0.5) * cellHeight;
-        
+
         // Calculate confidence at this grid point
         const confidence = calculateConfidenceAtPoint(x, z, model);
-        
+
         if (confidence !== null) {
           const color = getConfidenceColor(confidence);
           const geometry = new PlaneGeometry(cellWidth * 0.9, cellHeight * 0.9);
@@ -133,7 +133,7 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
             opacity: 0.6,
             side: DoubleSide
           });
-          
+
           const mesh = new Mesh(geometry, material);
           mesh.position.set(x, 0.1, z); // Slightly above ground
           mesh.rotation.x = -Math.PI / 2; // Lay flat
@@ -142,7 +142,7 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
             confidence: confidence,
             confidenceLevel: getConfidenceLevel(confidence)
           };
-          
+
           overlayGroup.add(mesh);
         }
       }
@@ -155,13 +155,13 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
   const createContoursOverlay = useCallback((model, overlayGroup) => {
     // Implementation for contour lines at confidence levels
     // This is a simplified version - full implementation would use marching squares
-    
+
     const contourLevels = [0.2, 0.4, 0.6, 0.8, 0.9];
-    
+
     contourLevels.forEach(level => {
       const color = getConfidenceColor(level);
       const contourGeometry = createContourGeometry(model, level);
-      
+
       if (contourGeometry) {
         const material = new LineBasicMaterial({
           color: new Color(color),
@@ -169,13 +169,13 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
           transparent: true,
           opacity: 0.8
         });
-        
+
         const contourLine = new Line(contourGeometry, material);
         contourLine.userData = {
           type: 'confidenceContour',
           confidenceLevel: level
         };
-        
+
         overlayGroup.add(contourLine);
       }
     });
@@ -190,7 +190,7 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
     // Create discrete confidence zones
     Object.entries(confidenceThresholds).forEach(([level, config]) => {
       const zoneGeometry = createConfidenceZoneGeometry(model, config.min);
-      
+
       if (zoneGeometry) {
         const material = new MeshBasicMaterial({
           color: new Color(config.color),
@@ -198,7 +198,7 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
           opacity: 0.4,
           side: DoubleSide
         });
-        
+
         const zoneMesh = new Mesh(zoneGeometry, material);
         zoneMesh.position.y = 0.1;
         zoneMesh.userData = {
@@ -206,7 +206,7 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
           confidenceLevel: level,
           threshold: config.min
         };
-        
+
         overlayGroup.add(zoneMesh);
       }
     });
@@ -258,13 +258,13 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
   const createContourGeometry = useCallback((model, level) => {
     // This is a placeholder - real implementation would use marching squares algorithm
     const points = [];
-    
+
     // For demonstration, create a simple circular contour
     const centerX = (model.siteExtent.minX + model.siteExtent.maxX) / 2;
     const centerZ = (model.siteExtent.minY + model.siteExtent.maxY) / 2;
-    const radius = Math.min(model.siteExtent.maxX - model.siteExtent.minX, 
-                           model.siteExtent.maxY - model.siteExtent.minY) * 0.3 * level;
-    
+    const radius = Math.min(model.siteExtent.maxX - model.siteExtent.minX,
+      model.siteExtent.maxY - model.siteExtent.minY) * 0.3 * level;
+
     for (let i = 0; i <= 32; i++) {
       const angle = (i / 32) * Math.PI * 2;
       points.push(new Vector3(
@@ -273,12 +273,12 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
         centerZ + Math.sin(angle) * radius
       ));
     }
-    
+
     if (points.length > 0) {
       const geometry = new BufferGeometry().setFromPoints(points);
       return geometry;
     }
-    
+
     return null;
   }, []);
 
@@ -294,10 +294,10 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
     if (geologicalModel && enabled && modelingSettings.enableConfidenceMapping) {
       const stats = calculateConfidenceStats(geologicalModel);
       setConfidenceStats(stats);
-      
+
       const overlay = createConfidenceOverlay(geologicalModel, overlayMode);
       setConfidenceOverlay(overlay);
-      
+
       // Add to scene
       if (overlay && scene) {
         // Remove existing overlay
@@ -305,7 +305,7 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
         if (existingOverlay) {
           scene.remove(existingOverlay);
         }
-        
+
         scene.add(overlay);
 
       }
@@ -381,8 +381,8 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
         <div className="legend-items">
           {Object.entries(confidenceThresholds).map(([level, config]) => (
             <div key={level} className="legend-item">
-              <div 
-                className="legend-color" 
+              <div
+                className="legend-color"
                 style={{ backgroundColor: config.color }}
               ></div>
               <span>{config.label}</span>
@@ -423,24 +423,24 @@ export function ConfidenceMappingOverlay({ geologicalModel, scene, enabled = tru
           <div className="interpretation-content">
             {confidenceStats.averageConfidence >= 0.8 ? (
               <div className="interpretation-item good">
-                <strong>Excellent Model Reliability:</strong> High confidence across most areas. 
+                <strong>Excellent Model Reliability:</strong> High confidence across most areas.
                 Model suitable for engineering design decisions.
               </div>
             ) : confidenceStats.averageConfidence >= 0.6 ? (
               <div className="interpretation-item medium">
-                <strong>Good Model Reliability:</strong> Acceptable confidence levels. 
+                <strong>Good Model Reliability:</strong> Acceptable confidence levels.
                 Consider additional borings in low-confidence areas for critical structures.
               </div>
             ) : (
               <div className="interpretation-item warning">
-                <strong>Limited Model Reliability:</strong> Low confidence in many areas. 
+                <strong>Limited Model Reliability:</strong> Low confidence in many areas.
                 Additional site investigation strongly recommended before design.
               </div>
             )}
-            
+
             {confidenceStats.confidenceDistribution.poor > 0 && (
               <div className="interpretation-item warning">
-                <strong>Areas of Concern:</strong> {confidenceStats.confidenceDistribution.poor} layer(s) 
+                <strong>Areas of Concern:</strong> {confidenceStats.confidenceDistribution.poor} layer(s)
                 with poor confidence. Additional borings recommended in these areas.
               </div>
             )}

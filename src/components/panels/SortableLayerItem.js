@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { handleWholeUnitScroll, handleWholeUnitKeyboard } from '../../utils/numericInputHelpers';
 
 export const SortableItem = ({
   id,
@@ -101,8 +102,10 @@ export const SortableItem = ({
                 type="number"
                 value={layer.depthFrom}
                 onChange={(e) => onUpdate('depthFrom', parseFloat(e.target.value) || 0)}
+                onWheel={(e) => handleWholeUnitScroll(e, (val) => onUpdate('depthFrom', val), { min: 0 })}
+                onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => onUpdate('depthFrom', val), { min: 0 })}
                 className={`depth-input ${getValidationState(index, 'depthFrom')}`}
-                step="0.1"
+                step="any"
                 min="0"
                 placeholder={index > 0 ? "(auto)" : "0.0"}
                 disabled={index > 0}
@@ -122,8 +125,10 @@ export const SortableItem = ({
                 type="number"
                 value={layer.depthTo}
                 onChange={(e) => onUpdate('depthTo', parseFloat(e.target.value) || 0)}
+                onWheel={(e) => handleWholeUnitScroll(e, (val) => onUpdate('depthTo', val), { min: 0 })}
+                onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => onUpdate('depthTo', val), { min: 0 })}
                 className={`depth-input ${getValidationState(index, 'depthTo')}`}
-                step="0.1"
+                step="any"
                 min="0"
               />
               {getValidationMessage(index, 'depthTo') && (

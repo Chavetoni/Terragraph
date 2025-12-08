@@ -2,6 +2,7 @@
 import React from 'react';
 import { useLayers } from '../../contexts/LayersContext';
 import { StandardInput, StandardTextarea, StandardFormGroup } from '../ui/StandardForm';
+import { handleWholeUnitScroll, handleWholeUnitKeyboard } from '../../utils/numericInputHelpers';
 
 const LayerControls = ({ layer, index, isActive }) => {
   const { updateLayer } = useLayers();
@@ -59,9 +60,11 @@ const LayerControls = ({ layer, index, isActive }) => {
           label="Depth (feet)"
           type="number"
           min="0.1"
-          step="0.1"
+          step="any"
           value={layer.depth || 1}
           onChange={(e) => handlePropertyChange('depth', e.target.value)}
+          onWheel={(e) => handleWholeUnitScroll(e, (val) => handlePropertyChange('depth', val), { min: 0.1 })}
+          onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => handlePropertyChange('depth', val), { min: 0.1 })}
         />
       </StandardFormGroup>
     </div>

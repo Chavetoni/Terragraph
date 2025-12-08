@@ -14,7 +14,7 @@ export class TextureManager {
     this.canvasPool = [];
     this.maxCacheSize = 50;
     this.cacheStats = { hits: 0, misses: 0, size: 0 };
-    
+
     // Pre-compile pattern renderers for better performance
     this.initializePatternRenderers();
   }
@@ -27,7 +27,7 @@ export class TextureManager {
     this.patternRenderers.set('silt', this.renderSiltPattern.bind(this));
     this.patternRenderers.set('organic', this.renderOrganicPattern.bind(this));
     this.patternRenderers.set('fill', this.renderFillPattern.bind(this));
-    
+
     // USCS pattern mappings
     this.patternRenderers.set('horizontal_dashed', this.renderClayPattern.bind(this));
     this.patternRenderers.set('sand_dots', this.renderSandPattern.bind(this));
@@ -44,51 +44,56 @@ export class TextureManager {
     const normalizedType = this.normalizeMaterialType(materialType);
     const normalizedColor = this.normalizeColor(baseColor);
     const settingsHash = this.hashSettings(textureSettings);
-    
+
     // Generate cache key
     const cacheKey = `${normalizedType}_${normalizedColor}_${settingsHash}`;
-    
+
     // Check cache first
     if (this.textureCache.has(cacheKey)) {
       this.cacheStats.hits++;
       return this.textureCache.get(cacheKey);
     }
-    
+
     this.cacheStats.misses++;
-    
+
     // Create new texture
     const texture = this.generateTexture(normalizedType, normalizedColor, textureSettings);
-    
+
     // Cache management - prevent memory bloat
     if (this.textureCache.size >= this.maxCacheSize) {
       this.evictLeastRecentlyUsed();
     }
-    
+
     // Store in cache
     this.textureCache.set(cacheKey, texture);
     this.cacheStats.size = this.textureCache.size;
-    
+
     return texture;
   }
 
   generateTexture(materialType, color, settings) {
     const canvas = this.getCanvas();
+    if (!canvas) {
+      validationLogger.error('TextureManager: Failed to create canvas');
+      return null;
+    }
+
     const ctx = canvas.getContext('2d');
-    
+
     // Performance optimization: clear canvas efficiently
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Apply base color
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     // Calculate optimized pattern parameters
     const patternParams = this.calculatePatternParameters(settings);
-    
+
     // Render pattern using specialized renderer
     const patternType = this.getPatternType(materialType);
     const renderer = this.patternRenderers.get(patternType) || this.patternRenderers.get('clay');
-    
+
     try {
       renderer(ctx, patternParams, color);
     } catch (error) {
@@ -96,7 +101,7 @@ export class TextureManager {
       // Fallback to basic clay pattern
       this.renderClayPattern(ctx, patternParams, color);
     }
-    
+
     // Create optimized texture
     const texture = new CanvasTexture(canvas);
     texture.wrapS = RepeatWrapping;
@@ -105,7 +110,7 @@ export class TextureManager {
     texture.magFilter = NearestFilter;
     texture.minFilter = NearestFilter;
     texture.needsUpdate = true;
-    
+
     // Store creation metadata for debugging
     texture.userData = {
       materialType,
@@ -113,14 +118,14 @@ export class TextureManager {
       settings: { ...settings },
       createdAt: Date.now()
     };
-    
+
     return texture;
   }
 
   calculatePatternParameters(settings) {
     const intensity = Math.max(0.1, Math.min(1.0, settings.globalIntensity || 0.7));
     const scale = Math.max(0.5, Math.min(2.5, settings.patternScale || 1.0));
-    
+
     return {
       intensity,
       scale,
@@ -134,22 +139,22 @@ export class TextureManager {
 
   renderClayPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing } = params;
-    
+
     // Primary horizontal lines
     ctx.strokeStyle = patternColor;
     ctx.lineWidth = lineWidth;
-    
+
     for (let y = spacing * 0.75; y < 128; y += spacing) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(128, y);
       ctx.stroke();
     }
-    
+
     // Add definition with outlines
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = Math.max(1, lineWidth * 0.5);
-    
+
     for (let y = spacing * 0.75; y < 128; y += spacing) {
       const offset = Math.max(1, lineWidth * 0.3);
       ctx.beginPath();
@@ -163,10 +168,10 @@ export class TextureManager {
 
   renderSandPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, elementSize, spacing } = params;
-    
+
     // Primary dot grid
     ctx.fillStyle = patternColor;
-    
+
     for (let x = spacing; x < 128; x += spacing) {
       for (let y = spacing; y < 128; y += spacing) {
         ctx.beginPath();
@@ -174,11 +179,11 @@ export class TextureManager {
         ctx.fill();
       }
     }
-    
+
     // Add outlines for definition
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = Math.max(1, elementSize * 0.3);
-    
+
     for (let x = spacing; x < 128; x += spacing) {
       for (let y = spacing; y < 128; y += spacing) {
         ctx.beginPath();
@@ -190,10 +195,10 @@ export class TextureManager {
 
   renderGravelPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, elementSize, spacing } = params;
-    
+
     // Random but deterministic gravel particles
     const particles = this.generateDeterministicParticles(8, spacing);
-    
+
     // Fill particles
     ctx.fillStyle = patternColor;
     particles.forEach(particle => {
@@ -201,7 +206,7 @@ export class TextureManager {
       ctx.arc(particle.x, particle.y, particle.size * elementSize * 0.8, 0, Math.PI * 2);
       ctx.fill();
     });
-    
+
     // Outline particles
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = Math.max(1, elementSize * 0.25);
@@ -214,23 +219,23 @@ export class TextureManager {
 
   renderRockPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing } = params;
-    
+
     // Large irregular rock formations
     const formations = this.generateDeterministicFormations(6, spacing);
-    
+
     ctx.strokeStyle = patternColor;
     ctx.lineWidth = lineWidth;
-    
+
     formations.forEach(formation => {
       ctx.beginPath();
       ctx.arc(formation.x, formation.y, formation.size, 0, Math.PI * 2);
       ctx.stroke();
     });
-    
+
     // Add definition
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = Math.max(1, lineWidth * 0.4);
-    
+
     formations.forEach(formation => {
       ctx.beginPath();
       ctx.arc(formation.x, formation.y, formation.size * 1.1, 0, Math.PI * 2);
@@ -240,22 +245,22 @@ export class TextureManager {
 
   renderSiltPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing } = params;
-    
+
     // Diagonal lines pattern
     ctx.strokeStyle = patternColor;
     ctx.lineWidth = lineWidth;
-    
+
     for (let i = -64; i < 192; i += spacing) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
       ctx.lineTo(i + 128, 128);
       ctx.stroke();
     }
-    
+
     // Add definition with offset lines
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = Math.max(1, lineWidth * 0.4);
-    
+
     for (let i = -64; i < 192; i += spacing) {
       const offset = lineWidth * 0.5;
       ctx.beginPath();
@@ -269,10 +274,10 @@ export class TextureManager {
 
   renderOrganicPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, elementSize, spacing } = params;
-    
+
     // Irregular organic shapes
     const organics = this.generateDeterministicOrganics(12, spacing);
-    
+
     ctx.fillStyle = patternColor;
     organics.forEach(organic => {
       ctx.beginPath();
@@ -284,11 +289,11 @@ export class TextureManager {
       );
       ctx.fill();
     });
-    
+
     // Add some horizontal layering
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = Math.max(1, elementSize * 0.3);
-    
+
     for (let y = spacing * 2; y < 128; y += spacing * 2.5) {
       ctx.beginPath();
       ctx.moveTo(0, y + Math.sin(y * 0.1) * 3);
@@ -299,23 +304,23 @@ export class TextureManager {
 
   renderFillPattern(ctx, params, baseColor) {
     const { patternColor, strokeColor, lineWidth, spacing, elementSize } = params;
-    
+
     // Random angular fragments
     const fragments = this.generateDeterministicFragments(15, spacing);
-    
+
     ctx.strokeStyle = patternColor;
     ctx.lineWidth = lineWidth;
-    
+
     fragments.forEach(fragment => {
       ctx.beginPath();
       const sides = fragment.sides;
       const radius = fragment.size * elementSize;
-      
+
       for (let i = 0; i <= sides; i++) {
         const angle = (i * 2 * Math.PI) / sides;
         const x = fragment.x + radius * Math.cos(angle);
         const y = fragment.y + radius * Math.sin(angle);
-        
+
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
@@ -324,82 +329,82 @@ export class TextureManager {
       }
       ctx.stroke();
     });
-    
+
     // Add systematic pattern lines
     ctx.strokeStyle = strokeColor;
     ctx.lineWidth = Math.max(1, lineWidth * 0.4);
     ctx.setLineDash([spacing * 0.6, spacing * 0.3]);
-    
+
     for (let y = spacing * 1.5; y < 128; y += spacing * 1.8) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(128, y);
       ctx.stroke();
     }
-    
+
     ctx.setLineDash([]);
   }
 
   generateDeterministicParticles(count, spacing) {
     const particles = [];
     const seed = 12345;
-    
+
     for (let i = 0; i < count; i++) {
       const x = 20 + ((seed + i * 1234) % 88);
       const y = 20 + ((seed + i * 5678) % 88);
       const size = 0.8 + ((seed + i * 9012) % 100) / 500;
-      
+
       particles.push({ x, y, size });
     }
-    
+
     return particles;
   }
 
   generateDeterministicFormations(count, spacing) {
     const formations = [];
     const seed = 54321;
-    
+
     for (let i = 0; i < count; i++) {
       const x = 25 + ((seed + i * 2345) % 78);
       const y = 25 + ((seed + i * 6789) % 78);
       const size = spacing * 0.4 + ((seed + i * 3456) % (spacing * 0.6));
-      
+
       formations.push({ x, y, size });
     }
-    
+
     return formations;
   }
 
   generateDeterministicOrganics(count, spacing) {
     const organics = [];
     const seed = 98765;
-    
+
     for (let i = 0; i < count; i++) {
       const x = 15 + ((seed + i * 1357) % 98);
       const y = 15 + ((seed + i * 2468) % 98);
       const width = 0.8 + ((seed + i * 3579) % 100) / 250;
       const height = 0.6 + ((seed + i * 4680) % 100) / 300;
       const rotation = ((seed + i * 5791) % 360) * Math.PI / 180;
-      
+
       organics.push({ x, y, width, height, rotation });
     }
-    
+
     return organics;
   }
 
   generateDeterministicFragments(count, spacing) {
     const fragments = [];
     const seed = 13579;
-    
+
     for (let i = 0; i < count; i++) {
       const x = 15 + ((seed + i * 2468) % 98);
       const y = 15 + ((seed + i * 3579) % 98);
       const size = 0.6 + ((seed + i * 4680) % 100) / 250;
       const sides = 3 + ((seed + i * 5791) % 4);
-      
+
       fragments.push({ x, y, size, sides });
     }
-    
+
     return fragments;
   }
 
@@ -407,7 +412,7 @@ export class TextureManager {
     if (this.canvasPool.length > 0) {
       return this.canvasPool.pop();
     }
-    
+
     const canvas = document.createElement('canvas');
     canvas.width = 128;
     canvas.height = 128;
@@ -447,7 +452,7 @@ export class TextureManager {
     if (colorStr === 'default' || colorStr.length === 0) {
       return '#888888';
     }
-    
+
     return colorStr.toLowerCase();
   }
 
@@ -486,7 +491,7 @@ export class TextureManager {
           'horizontal_lines_organic': 'organic',
           'fill_pattern': 'fill'
         };
-        
+
         return patternMap[materialProps.pattern] || materialType;
       }
     } catch (error) {
@@ -504,7 +509,7 @@ export class TextureManager {
       'peat': 'organic',
       'unknown': 'clay'
     };
-    
+
     return typeMap[materialType] || 'clay';
   }
 

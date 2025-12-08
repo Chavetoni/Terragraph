@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useContext } from 'react';
-import { useVolumetricModeling } from './useOptimizedGeologicalModeling';
-import { useBoreholeData } from './useOptimizedBorehole';
-import { useTextureSettings } from './useOptimizedDisplayOptions';
+import { useGeologicalModeling } from '../contexts/GeologicalModelingContext';
+import { useBoreholes } from '../contexts/BoreholeContext';
+import { useDisplayOptions } from '../contexts/DisplayOptionsContext';
 import { ThreeJsContext } from '../contexts/ThreeJsContext';
 import { VolumetricMeshGenerator } from '../services/VolumetricMeshGenerator';
 import { SpatialInterpolationEngine } from '../services/SpatialInterpolationEngine';
@@ -11,15 +11,19 @@ import { Logger } from '../utils/Logger.js';
 const logger = new Logger().withContext('useVolumetricGeology');
 
 export function useVolumetricGeology() {
-  const { boreholes } = useBoreholeData();
+  const { boreholes } = useBoreholes();
   const { sceneManager } = useContext(ThreeJsContext);
-  const { textureSettings } = useTextureSettings();
-  const { 
-    modelingMode, 
+  const { textureSettings, showConfidenceVisualization } = useDisplayOptions();
+  const {
+    modelingMode,
     modelingSettings,
     setPrototypeState,
-    clearPrototypeState
-  } = useVolumetricModeling();
+    clearPrototypeState,
+    // Interpolation style settings (natural vs conservative)
+    interpolationStyleSettings,
+    // Advanced interpolation mode (horizon preprocessing + anisotropic distance)
+    useAdvancedInterpolation
+  } = useGeologicalModeling();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(null);
@@ -32,10 +36,10 @@ export function useVolumetricGeology() {
    */
   const cleanupIsolatedPockets = useCallback(() => {
     if (sceneManager && sceneManager.objects) {
-      const isolatedPocketKeys = Array.from(sceneManager.objects.keys()).filter(key => 
+      const isolatedPocketKeys = Array.from(sceneManager.objects.keys()).filter(key =>
         key.startsWith('IsolatedPocket_')
       );
-      
+
       if (isolatedPocketKeys.length > 0) {
 
         isolatedPocketKeys.forEach(key => {
@@ -62,29 +66,52 @@ export function useVolumetricGeology() {
     }
 
     // Check for layers
-    const boreholesWithLayers = boreholes.filter(bh => 
+    const boreholesWithLayers = boreholes.filter(bh =>
       bh.layers && bh.layers.length > 0
     );
+
     if (boreholesWithLayers.length < 3) {
       errors.push('At least 3 boreholes must have layer data');
       return { isValid: false, errors, warnings };
     }
 
     // Check for collinearity
-    const positions = boreholes.slice(0, 3).map(bh => ({ 
-      x: bh.x, 
+    const positions = boreholes.slice(0, 3).map(bh => ({
+      x: bh.x,
       z: bh.z  // Use Z for horizontal positioning
     }));
     const [p1, p2, p3] = positions;
     const area = Math.abs(
-      p1.x * (p2.z - p3.z) + 
-      p2.x * (p3.z - p1.z) + 
+      p1.x * (p2.z - p3.z) +
+      p2.x * (p3.z - p1.z) +
       p3.x * (p1.z - p2.z)
     ) / 2;
 
     if (area < 0.1) {
       errors.push('Boreholes are collinear - need triangular distribution');
       return { isValid: false, errors, warnings };
+    }
+
+    // Check for sparse borehole configurations
+    const calculateAverageSpacing = (boreholes) => {
+      if (boreholes.length < 2) return 0;
+      let totalDistance = 0;
+      let pairCount = 0;
+      for (let i = 0; i < boreholes.length; i++) {
+        for (let j = i + 1; j < boreholes.length; j++) {
+          const dx = boreholes[i].x - boreholes[j].x;
+          const dy = boreholes[i].z - boreholes[j].z;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          totalDistance += distance;
+          pairCount++;
+        }
+      }
+      return pairCount > 0 ? totalDistance / pairCount : 0;
+    };
+
+    const averageSpacing = calculateAverageSpacing(boreholes);
+    if (averageSpacing > 150) {
+      warnings.push(`Boreholes are widely spaced (avg: ${Math.round(averageSpacing)} ft) - interpolation accuracy may be reduced. Consider adding more boreholes for better results.`);
     }
 
     // Check for common materials
@@ -104,9 +131,9 @@ export function useVolumetricGeology() {
       warnings.push('No materials found in at least 3 boreholes - limited interpolation');
     }
 
-    return { 
-      isValid: errors.length === 0, 
-      errors, 
+    return {
+      isValid: errors.length === 0,
+      errors,
       warnings,
       stats: {
         boreholeCount: boreholes.length,
@@ -130,10 +157,10 @@ export function useVolumetricGeology() {
     if (processingRef.current) {
       return null;
     }
-    
+
     processingRef.current = true;
     setIsProcessing(true);
-    
+
     // Debounced progress updates for better performance
     const updateProgress = (progressData) => {
       if (progressTimeoutRef.current) {
@@ -143,7 +170,7 @@ export function useVolumetricGeology() {
         setProgress(progressData);
       }, 50); // 50ms debounce
     };
-    
+
     updateProgress({ step: 'Initializing volumetric processing...', percent: 0 });
     setError(null);
 
@@ -151,7 +178,7 @@ export function useVolumetricGeology() {
       // Step 1: Validate data
       updateProgress({ step: 'Validating borehole data...', percent: 10 });
       const validation = validateVolumetricData(boreholes);
-      
+
       if (!validation.isValid) {
         throw new Error(validation.errors.join(', '));
       }
@@ -159,37 +186,97 @@ export function useVolumetricGeology() {
 
       // Step 2: Generate volumetric meshes (ASYNC to prevent UI blocking)
       updateProgress({ step: 'Generating 3D geological volumes...', percent: 30 });
-      
+
       // Convert grid resolution to numeric value
-      let numericGridResolution = 10; // default - REDUCED for stability
+      let numericGridResolution = modelingSettings.defaultGridResolution || 15; // Unified default: balanced quality/performance
       if (typeof modelingSettings.gridResolution === 'number') {
         numericGridResolution = modelingSettings.gridResolution;
       } else if (modelingSettings.gridResolution === 'auto') {
-        numericGridResolution = 10; // auto = lower resolution for stability
+        numericGridResolution = modelingSettings.defaultGridResolution || 15; // Use default setting
       }
 
       // Use selected method directly (no auto-selection)
       let selectedMethod = modelingSettings.interpolationMethod || 'idw';
-      let methodReasoning = selectedMethod === 'kriging' 
+      let methodReasoning = selectedMethod === 'kriging'
         ? 'Statistical interpolation with uncertainty estimates'
         : 'Realistic geological interpolation preserving detail';
+
+      // ==========================================================================
+      // SPARSE BOREHOLE DETECTION AND ADAPTIVE PARAMETER ADJUSTMENT
+      // ==========================================================================
+      // Calculate average borehole spacing to detect sparse configurations
+      const calculateAverageSpacing = (boreholes) => {
+        if (boreholes.length < 2) return 0;
+
+        let totalDistance = 0;
+        let pairCount = 0;
+
+        for (let i = 0; i < boreholes.length; i++) {
+          for (let j = i + 1; j < boreholes.length; j++) {
+            const dx = boreholes[i].x - boreholes[j].x;
+            const dy = boreholes[i].z - boreholes[j].z; // Use z for horizontal positioning
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            totalDistance += distance;
+            pairCount++;
+          }
+        }
+
+        return pairCount > 0 ? totalDistance / pairCount : 0;
+      };
+
+      const averageSpacing = calculateAverageSpacing(boreholes);
+      const maxBoreholeDistance = boreholes.reduce((max, bh1) => {
+        const distances = boreholes.map(bh2 => {
+          const dx = bh1.x - bh2.x;
+          const dy = bh1.z - bh2.z;
+          return Math.sqrt(dx * dx + dy * dy);
+        });
+        return Math.max(max, Math.max(...distances));
+      }, 0);
+
+      // ADAPTIVE INTERPOLATION DISTANCE
+      // For sparse configurations, increase maxDistance to ensure interpolation works
+      // Default maxDistance of 100 ft is too small for widely spaced boreholes
+      const calculateAdaptiveMaxDistance = () => {
+        // If user explicitly set maxInfluenceDistance, respect it
+        if (modelingSettings.maxInfluenceDistance && modelingSettings.maxInfluenceDistance > 0) {
+          return modelingSettings.maxInfluenceDistance;
+        }
+
+        // Calculate adaptive distance based on borehole spacing
+        // Use 1.5x the average spacing, with a minimum of 100 ft and maximum of 1000 ft
+        const adaptiveDistance = Math.max(100, Math.min(1000, averageSpacing * 1.5));
+
+        // For very sparse configs (3 boreholes spread >200 ft apart), be even more generous
+        if (boreholes.length === 3 && averageSpacing > 200) {
+          return Math.min(1000, maxBoreholeDistance * 0.8); // 80% of max distance
+        }
+
+        return adaptiveDistance;
+      };
+
+      const adaptiveMaxDistance = calculateAdaptiveMaxDistance();
 
       // Enhanced options with geological validation and interpolation methods
       const enhancedOptions = {
         gridResolution: numericGridResolution,
         interpolationPower: modelingSettings.interpolationPower || 2,
         smoothingFactor: modelingSettings.smoothingEnabled ? 1 : 0,
-        minThickness: 0.15, // Slightly more conservative
+        // Use interpolation style settings from context (natural vs conservative mode)
+        // These values come from INTERPOLATION_STYLE_PRESETS based on user's mode selection
+        minThickness: interpolationStyleSettings?.minThickness ?? 0.05,
         // NEW: Geological validation options (user-controlled)
         enableGeologicalValidation: modelingSettings.enableGeologicalValidation || false,
-        maxSlope: 30,                    // 30° maximum geological slope
-        smoothingRadius: 1,              // Grid unit smoothing
+        maxSlope: interpolationStyleSettings?.maxSlope ?? 45,
+        smoothingRadius: interpolationStyleSettings?.smoothingRadius ?? 0,
         enforceStratigraphicOrder: true, // Prevent layer inversions
-        applyLateralContinuity: true,    // Smooth transitions
-        
+        applyLateralContinuity: interpolationStyleSettings?.applyLateralContinuity ?? false,
+
         // NEW: Advanced interpolation method settings
         interpolationMethod: selectedMethod,
         enableConfidenceMapping: false, // Removed from UI - not functional
+        // ADAPTIVE MAX DISTANCE: Automatically adjusted for sparse borehole configurations
+        maxDistance: adaptiveMaxDistance,
         // Kriging settings (passed through from UI)
         krigingVariogramModel: modelingSettings.krigingVariogramModel || 'spherical',
         krigingRange: modelingSettings.krigingRange || 25,
@@ -198,7 +285,7 @@ export function useVolumetricGeology() {
         // RBF settings (passed through from UI)
         rbfBasisFunction: modelingSettings.rbfBasisFunction || 'multiquadric',
         rbfShapeParameter: modelingSettings.rbfShapeParameter || 1.0,
-        
+
         // NEW: Isolated material handling (pass through from UI settings)
         // CRITICAL FIX: Default to 'interpolate' for continuous layers, not 'pockets'
         isolatedMaterialHandling: modelingSettings.isolatedMaterialHandling || 'interpolate',
@@ -207,13 +294,36 @@ export function useVolumetricGeology() {
         pocketOpacity: modelingSettings.pocketOpacity || 0.7,
         pocketDepthRatio: modelingSettings.pocketDepthRatio || 0.3,
         pocketShape: modelingSettings.pocketShape || 'ellipsoid',
-        
+
         // NEW: Texture settings for isolated pockets
         textureSettings: textureSettings,
-        
+
+        // NEW: Confidence visualization (per-vertex alpha based on data certainty)
+        showConfidenceVisualization: showConfidenceVisualization || false,
+
         // Store method selection info for later use
         methodSelectionReasoning: methodReasoning,
-        originalMethod: modelingSettings.interpolationMethod
+        originalMethod: modelingSettings.interpolationMethod,
+
+        // ===== NEW: Performance Optimization Flags (Phase 2) =====
+        useKDTree: modelingSettings.useKDTreeInterpolation !== false, // Default true
+        maxNeighbors: modelingSettings.maxNeighbors || 12,
+        adaptiveConfidence: modelingSettings.adaptiveConfidenceDistance !== false, // Default true
+        searchRadius: modelingSettings.searchRadiusEnabled !== false, // Default true
+
+        // ===== NEW: Accuracy Improvement Flags (Phase 3) =====
+        enableCrossValidation: modelingSettings.enableCrossValidation || false, // Default false (adds time)
+        detectAnisotropy: modelingSettings.enableAnisotropyDetection || false, // Default false (experimental)
+        anisotropyOptions: {
+          minRatio: modelingSettings.anisotropyMinRatio || 1.5,
+          minConfidence: modelingSettings.anisotropyMinConfidence || 0.6
+        },
+
+        // ===== Advanced Interpolation Mode (user-toggled) =====
+        // These features work better with large datasets (10+ boreholes)
+        // For small datasets, they can cause flat/over-smoothed surfaces
+        useHorizonPreprocessing: useAdvancedInterpolation,   // Pinch-out handling with zero-thickness markers
+        useAnisotropicDistance: useAdvancedInterpolation     // 3D ellipsoidal distance (10:1 vertical ratio)
       };
 
       // PERFORMANCE FIX: Break heavy computation into async chunks to prevent UI blocking
@@ -226,7 +336,7 @@ export function useVolumetricGeology() {
             setTimeout(callback, 0);
           }
         };
-        
+
         scheduleWork(() => {
           try {
             updateProgress({ step: 'Processing geological data...', percent: 40 });
@@ -239,7 +349,19 @@ export function useVolumetricGeology() {
       });
 
       if (volumes.length === 0) {
-        throw new Error('No volumes could be generated from the data');
+        const boreholeCount = boreholes.length;
+        const hasLayers = boreholes.some(bh => bh.layers && bh.layers.length > 0);
+
+        let errorMsg = 'No volumes could be generated from the data. ';
+        if (boreholeCount < 3) {
+          errorMsg += `At least 3 boreholes are required for volumetric modeling (currently: ${boreholeCount}).`;
+        } else if (!hasLayers) {
+          errorMsg += 'Boreholes must have at least one geological layer defined.';
+        } else {
+          errorMsg += 'Check that boreholes have valid coordinates and geological layers with depth/thickness values.';
+        }
+
+        throw new Error(errorMsg);
       }
 
       updateProgress({ step: 'Calculating interpolation confidence...', percent: 70 });
@@ -247,7 +369,7 @@ export function useVolumetricGeology() {
       // Step 3: Calculate confidence metrics
       const extent = SpatialInterpolationEngine.calculateExtent(boreholes);
       const boreholePoints = boreholes.map(bh => ({ x: bh.x, y: bh.z }));
-      
+
       // Generate confidence grid
       const confidenceGrid = SpatialInterpolationEngine.generateConfidenceGrid(
         SpatialInterpolationEngine.generateGrid(extent, 10), // Lower res for confidence
@@ -255,7 +377,7 @@ export function useVolumetricGeology() {
         { maxGoodDistance: modelingSettings.maxInfluenceDistance || 20 }
       );
 
-      const avgConfidence = confidenceGrid.reduce((sum, point) => 
+      const avgConfidence = confidenceGrid.reduce((sum, point) =>
         sum + point.confidence, 0
       ) / confidenceGrid.length;
 
@@ -284,11 +406,11 @@ export function useVolumetricGeology() {
 
       // Set result in context
       setPrototypeState(result);
-      
+
       processingRef.current = false;
       setIsProcessing(false);
       updateProgress({ step: 'Volumetric model complete!', percent: 100 });
-      
+
       // Clear progress after delay
       setTimeout(() => {
         setProgress(null);
@@ -301,7 +423,7 @@ export function useVolumetricGeology() {
 
     } catch (error) {
       logger.error('Volumetric processing error:', error);
-      setError({ 
+      setError({
         message: error.message,
         details: error.stack,
         timestamp: new Date().toISOString()
@@ -315,7 +437,7 @@ export function useVolumetricGeology() {
       }
       return null;
     }
-  }, [boreholes, modelingMode, modelingSettings, textureSettings, validateVolumetricData, setPrototypeState]);
+  }, [boreholes, modelingMode, modelingSettings, textureSettings, showConfidenceVisualization, validateVolumetricData, setPrototypeState, interpolationStyleSettings, useAdvancedInterpolation]);
 
   /**
    * Clear volumetric model
@@ -323,14 +445,14 @@ export function useVolumetricGeology() {
   const clearVolumetricModel = useCallback(() => {
     // Dispose of all tracked volumetric resources
     volumetricTracker.disposeAll();
-    
+
     // DIRECT CLEANUP: Remove all isolated pockets immediately when user clears model
     cleanupIsolatedPockets();
 
     clearPrototypeState();
     setError(null);
     setProgress(null);
-    
+
     // Clear timeout refs
     if (progressTimeoutRef.current) {
       clearTimeout(progressTimeoutRef.current);

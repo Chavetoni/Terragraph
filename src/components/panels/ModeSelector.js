@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { useGeologicalModeling } from '../../contexts/OptimizedGeologicalModelingContext';
+import { useGeologicalModeling } from '../../contexts/GeologicalModelingContext';
 import './ModeSelector.css';
 
 const ModeSelector = ({ className = '' }) => {
-  const { 
-    modelingMode, 
-    switchMode, 
-    capabilities, 
+  const {
+    modelingMode,
+    switchMode,
+    capabilities,
     getModeInfo,
-    MODELING_MODES 
+    MODELING_MODES
   } = useGeologicalModeling();
-  
+
   const [showTooltip, setShowTooltip] = useState(null);
   const [error, setError] = useState('');
 
@@ -40,7 +40,7 @@ const ModeSelector = ({ className = '' }) => {
         </svg>
       ) : (
         <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       );
     }
@@ -52,7 +52,7 @@ const ModeSelector = ({ className = '' }) => {
       if (capabilities.boreholeCount < 3) missing.push('boreholes');
       if (!capabilities.hasLayerData) missing.push('layer data');
       if (!capabilities.hasSpatialData) missing.push('coordinates');
-      
+
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
           Missing: {missing.join(', ')}
@@ -95,7 +95,7 @@ const ModeSelector = ({ className = '' }) => {
             <span className="mode-label">{conceptualInfo.name}</span>
             <span className="mode-subtitle">Quick layers</span>
           </div>
-          
+
           {showTooltip === 'conceptual' && (
             <div className="mode-tooltip">
               <h5 className="font-medium text-gray-900 mb-2">Features:</h5>
@@ -110,7 +110,7 @@ const ModeSelector = ({ className = '' }) => {
             </div>
           )}
         </button>
-        
+
         <button
           className={`mode-option ${modelingMode === MODELING_MODES.DATA_DRIVEN ? 'active' : 'inactive'} ${!capabilities.canUseDataDriven ? 'disabled' : ''}`}
           onClick={() => capabilities.canUseDataDriven && handleModeChange(MODELING_MODES.DATA_DRIVEN)}
@@ -127,7 +127,7 @@ const ModeSelector = ({ className = '' }) => {
             <span className="mode-label">{dataDriverInfo.name}</span>
             <span className="mode-subtitle">Advanced modeling</span>
           </div>
-          
+
           {showTooltip === 'data-driven' && (
             <div className="mode-tooltip">
               <h5 className="font-medium text-gray-900 mb-2">Requirements:</h5>
@@ -137,12 +137,11 @@ const ModeSelector = ({ className = '' }) => {
                   if (req.includes('Minimum')) ismet = capabilities.boreholeCount >= 3;
                   if (req.includes('coordinates')) ismet = capabilities.hasSpatialData;
                   if (req.includes('layer data')) ismet = capabilities.hasLayerData;
-                  
+
                   return (
                     <li key={index} className="flex items-center">
-                      <span className={`w-2 h-2 rounded-full mr-2 ${
-                        ismet ? 'bg-green-400' : 'bg-red-400'
-                      }`}></span>
+                      <span className={`w-2 h-2 rounded-full mr-2 ${ismet ? 'bg-green-400' : 'bg-red-400'
+                        }`}></span>
                       <span className={ismet ? 'text-gray-600' : 'text-red-600'}>
                         {req}
                       </span>
@@ -157,7 +156,7 @@ const ModeSelector = ({ className = '' }) => {
           )}
         </button>
       </div>
-      
+
       <div className="mode-info">
         {modelingMode === MODELING_MODES.CONCEPTUAL && (
           <div className="mode-info-content">

@@ -2,11 +2,27 @@
  * Spatial Interpolation Engine for 3D Geological Modeling
  * Implements IDW (Inverse Distance Weighting) interpolation for creating smooth geological surfaces
  * Enhanced with geological validation and constraint enforcement
+ *
+ * Features:
+ * - Anisotropic distance weighting (3D ellipsoidal distance)
+ * - KD-tree optimization for neighbor search
+ * - Geological validation and constraint enforcement
  */
 
 import { GeologicalValidator } from './GeologicalValidator';
 
 const EPSILON = 1e-10;
+
+/**
+ * Default anisotropy scale factors
+ * Lz = 0.1 means vertical distance is 10x more "expensive" than horizontal
+ * This prioritizes horizontal neighbors, matching geological layer continuity
+ */
+const DEFAULT_ANISOTROPY = {
+  Lx: 1.0,   // East-West scale (horizontal baseline)
+  Ly: 1.0,   // North-South scale (horizontal baseline)
+  Lz: 0.1    // Vertical scale - 10:1 ratio makes Z expensive
+};
 
 export class SpatialInterpolationEngine {
   static buildKDTree(points) {
@@ -90,9 +106,15 @@ export class SpatialInterpolationEngine {
   }
 
   /**
-   * Perform Inverse Distance Weighting interpolation
+   * Perform Inverse Distance Weighting interpolation with confidence weighting
+   *
+   * Points with higher confidence (observed data, confidence=1.0) have more
+   * influence than estimated/interpolated points (confidence<1.0). This allows
+   * actual borehole observations to dominate over zero-thickness markers
+   * inserted for missing layers.
+   *
    * @param {Object} targetPoint - Point to interpolate {x, y}
-   * @param {Array} dataPoints - Known data points with values [{x, y, value}]
+   * @param {Array} dataPoints - Known data points with values [{x, y, value, confidence?}]
    * @param {number} power - IDW power parameter (default 2)
    * @param {number} maxDistance - Maximum influence distance (optional)
    * @returns {number} Interpolated value at target point
@@ -108,9 +130,7 @@ export class SpatialInterpolationEngine {
       const dx = targetPoint.x - point.x;
       const dy = targetPoint.y - point.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < EPSILON) {
-        continue;
-      }
+      // FIX: Return exact value for points at same location (was incorrectly skipping)
       if (distance < 0.001) {
         return point.value;
       }
@@ -118,20 +138,21 @@ export class SpatialInterpolationEngine {
         continue;
       }
 
-      const weight = (Math.abs(distance) < EPSILON ? 0 : 1 / Math.pow(distance, power));
+      // Confidence weighting: actual observations (confidence=1.0) have more
+      // influence than estimated points (e.g., zero-thickness markers at 0.6)
+      const pointConfidence = point.confidence ?? 1.0;
+      const weight = pointConfidence * (1 / Math.pow(distance, power));
       numerator += weight * point.value;
       denominator += weight;
     }
     if (denominator === 0) {
+      // Fallback to nearest neighbor when no valid weights
       let minDist = Infinity;
       let nearestValue = 0;
       for (const point of dataPoints) {
         const dx = targetPoint.x - point.x;
         const dy = targetPoint.y - point.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < EPSILON) {
-          continue;
-        }
         if (distance < minDist) {
           minDist = distance;
           nearestValue = point.value;
@@ -144,21 +165,142 @@ export class SpatialInterpolationEngine {
   }
 
   /**
+   * Calculate anisotropic (ellipsoidal) distance between two points
+   * Makes vertical distance "expensive" to prioritize horizontal neighbors
+   *
+   * Formula: d = sqrt((dx/Lx)² + (dy/Ly)² + (dz/Lz)²)
+   *
+   * With default Lz = 0.1:
+   * - 1 foot horizontal = 1 unit distance
+   * - 1 foot vertical = 10 units distance (10x more expensive)
+   *
+   * This matches geological reality where layers are continuous horizontally
+   * but can change dramatically over short vertical distances.
+   *
+   * @param {Object} p1 - First point {x, y, topZ, bottomZ} or {x, y, z}
+   * @param {Object} p2 - Second point
+   * @param {Object} scales - Scale factors {Lx, Ly, Lz}, defaults to 10:1 ratio
+   * @returns {number} Anisotropic distance
+   */
+  static anisotropicDistance(p1, p2, scales = DEFAULT_ANISOTROPY) {
+    const { Lx = 1.0, Ly = 1.0, Lz = 0.1 } = scales;
+
+    const dx = p1.x - p2.x;
+    const dy = p1.y - p2.y;
+
+    // Get Z values - handle both topZ/bottomZ format and simple z format
+    // For layer points, use the center elevation
+    const z1 = p1.topZ !== undefined
+      ? (p1.topZ + (p1.bottomZ !== undefined ? p1.bottomZ : p1.topZ)) / 2
+      : (p1.z !== undefined ? p1.z : 0);
+    const z2 = p2.topZ !== undefined
+      ? (p2.topZ + (p2.bottomZ !== undefined ? p2.bottomZ : p2.topZ)) / 2
+      : (p2.z !== undefined ? p2.z : 0);
+    const dz = z1 - z2;
+
+    // Ellipsoidal distance with anisotropic scaling
+    return Math.sqrt(
+      (dx / Lx) ** 2 +
+      (dy / Ly) ** 2 +
+      (dz / Lz) ** 2
+    );
+  }
+
+  /**
+   * Perform anisotropic Inverse Distance Weighting interpolation
+   * Uses 3D ellipsoidal distance to prioritize horizontal neighbors
+   *
+   * @param {Object} targetPoint - Point to interpolate {x, y} or {x, y, z}
+   * @param {Array} dataPoints - Known data points with values [{x, y, topZ, bottomZ, value}]
+   * @param {number} power - IDW power parameter (default 2)
+   * @param {Object} options - Additional options {maxDistance, scales}
+   * @returns {number} Interpolated value at target point
+   */
+  static inverseDistanceWeightingAnisotropic(targetPoint, dataPoints, power = 2, options = {}) {
+    const {
+      maxDistance = null,
+      scales = DEFAULT_ANISOTROPY,
+      targetZ = null  // Optional Z for target point (for 3D queries)
+    } = options;
+
+    if (dataPoints.length === 0) return 0;
+    if (dataPoints.length === 1) return dataPoints[0].value;
+
+    // Create target with Z if provided
+    const target = targetZ !== null
+      ? { ...targetPoint, z: targetZ }
+      : targetPoint;
+
+    let numerator = 0;
+    let denominator = 0;
+
+    for (const point of dataPoints) {
+      const distance = this.anisotropicDistance(target, point, scales);
+
+      // FIX: Return exact value for points at same location (was incorrectly skipping)
+      if (distance < 0.001) {
+        return point.value;
+      }
+      if (maxDistance && distance > maxDistance) {
+        continue;
+      }
+
+      const weight = 1 / Math.pow(distance, power);
+      numerator += weight * point.value;
+      denominator += weight;
+    }
+
+    if (denominator === 0) {
+      // Fallback to nearest neighbor when no valid weights
+      let minDist = Infinity;
+      let nearestValue = 0;
+      for (const point of dataPoints) {
+        const distance = this.anisotropicDistance(target, point, scales);
+        if (distance < minDist) {
+          minDist = distance;
+          nearestValue = point.value;
+        }
+      }
+      return nearestValue;
+    }
+
+    return numerator / denominator;
+  }
+
+  /**
    * Interpolate both top and bottom surfaces for a geological layer
    * @param {Array} layerPoints - Points with layer data [{x, y, topZ, bottomZ}]
    * @param {Object} gridExtent - Grid boundaries
    * @param {number} resolution - Grid resolution
-   * @param {Object} options - Additional options {power, maxDistance}
+   * @param {Object} options - Additional options {power, maxDistance, useKDTree, maxNeighbors}
    * @returns {Object} {topSurface, bottomSurface} arrays of interpolated points
    */
   static interpolateLayerSurface(layerPoints, gridExtent, resolution, options = {}) {
-    const { power = 2, maxDistance = null } = options;
+    const {
+      power = 2,
+      maxDistance = null,
+      useKDTree = true,  // Feature flag: use KD-tree optimization
+      maxNeighbors = 12,  // Maximum neighbors to consider per grid point
+      useAnisotropy = false,  // NEW: Enable 3D anisotropic distance
+      anisotropyScales = DEFAULT_ANISOTROPY  // NEW: {Lx, Ly, Lz} scale factors
+    } = options;
     const grid = this.generateGrid(gridExtent, resolution);
 
+    // When using anisotropy, disable KD-tree (it's 2D only)
+    // Performance impact is acceptable for typical borehole counts (<100)
+    const effectiveUseKDTree = useKDTree && !useAnisotropy;
+
     if (layerPoints.length < 3) {
+      // CRITICAL FIX: Transform layer points to use z (N-S) coordinate as y for distance calculations
+      // Layer points have: y = surface elevation, z = N-S coordinate
+      // Grid points have: y = N-S coordinate (from extent using borehole.z)
+      const transformedPoints = layerPoints.map(p => ({
+        ...p,
+        y: p.z  // Use N-S coordinate for distance calculations
+      }));
 
       if (layerPoints.length === 1) {
-        const point = layerPoints[0];
+        const point = transformedPoints[0];
         const topSurface = grid.map(gridPoint => {
           const result = this.geologicalExtrapolation([point], gridPoint, { valueField: 'topZ' });
           return {
@@ -177,9 +319,9 @@ export class SpatialInterpolationEngine {
         });
         return { topSurface, bottomSurface, gridResolution: resolution };
       } else if (layerPoints.length === 2) {
-        const p1 = layerPoints[0];
-        const p2 = layerPoints[1];
-        
+        const p1 = transformedPoints[0];
+        const p2 = transformedPoints[1];
+
         const topSurface = grid.map(gridPoint => {
           const result = this.geologicalExtrapolation([p1, p2], gridPoint, { valueField: 'topZ' });
           return {
@@ -199,25 +341,98 @@ export class SpatialInterpolationEngine {
         return { topSurface, bottomSurface, gridResolution: resolution };
       }
     }
-    const topSurface = grid.map(gridPoint => ({
-      ...gridPoint,
-      z: this.inverseDistanceWeighting(
-        gridPoint,
-        layerPoints.map(p => ({ x: p.x, y: p.y, value: p.topZ })),
-        power,
-        maxDistance
-      )
-    }));
 
-    const bottomSurface = grid.map(gridPoint => ({
-      ...gridPoint,
-      z: this.inverseDistanceWeighting(
-        gridPoint,
-        layerPoints.map(p => ({ x: p.x, y: p.y, value: p.bottomZ })),
-        power,
-        maxDistance
-      )
-    }));
+    // KD-TREE OPTIMIZATION: Build trees once for efficient nearest neighbor search
+    // This reduces complexity from O(n*m) to O(n*log(m)) where n=grid points, m=boreholes
+    // Expected speedup: 10-100x on sites with >20 boreholes
+    // NOTE: KD-tree is 2D only, disabled when using 3D anisotropic distance
+    let topTree = null;
+    let bottomTree = null;
+    const shouldUseKDTree = effectiveUseKDTree && layerPoints.length >= 8;
+
+    if (shouldUseKDTree) {
+      // Build KD-trees for top and bottom surfaces
+      // CRITICAL FIX: Use p.z (North-South) not p.y (surface elevation) for distance calculations
+      // The grid uses extent.minY/maxY which are derived from borehole.z (N-S coordinate)
+      const topPoints = layerPoints.map(p => ({ x: p.x, y: p.z, value: p.topZ }));
+      const bottomPoints = layerPoints.map(p => ({ x: p.x, y: p.z, value: p.bottomZ }));
+      topTree = this.buildKDTree(topPoints);
+      bottomTree = this.buildKDTree(bottomPoints);
+    }
+
+    const topSurface = grid.map((gridPoint) => {
+      let dataPoints;
+      if (shouldUseKDTree) {
+        // Use KD-tree to find only nearest neighbors (major performance win!)
+        const neighbors = this.findNearestNeighbors(topTree, gridPoint, maxNeighbors);
+        dataPoints = neighbors;
+      } else {
+        // Fallback: use all points (original behavior for <8 boreholes or anisotropy mode)
+        // Include full Z data for anisotropic distance calculation
+        // CRITICAL FIX: Use p.z (North-South) not p.y (surface elevation) for distance calculations
+        dataPoints = layerPoints.map(p => ({
+          x: p.x,
+          y: p.z,  // N-S coordinate (matches grid coordinate system)
+          value: p.topZ,
+          topZ: p.topZ,
+          bottomZ: p.bottomZ
+        }));
+      }
+
+      // Choose interpolation method based on anisotropy setting
+      const interpolatedZ = useAnisotropy
+        ? this.inverseDistanceWeightingAnisotropic(gridPoint, dataPoints, power, {
+            maxDistance,
+            scales: anisotropyScales
+          })
+        : this.inverseDistanceWeighting(gridPoint, dataPoints, power, maxDistance);
+
+      // Calculate confidence based on distance to nearest data point
+      const confidence = this.calculateConfidence(gridPoint, dataPoints, maxDistance || 32.8);
+
+      return {
+        ...gridPoint,
+        z: interpolatedZ,
+        confidence
+      };
+    });
+
+    const bottomSurface = grid.map(gridPoint => {
+      let dataPoints;
+      if (shouldUseKDTree) {
+        // Use KD-tree to find only nearest neighbors (major performance win!)
+        const neighbors = this.findNearestNeighbors(bottomTree, gridPoint, maxNeighbors);
+        dataPoints = neighbors;
+      } else {
+        // Fallback: use all points (original behavior for <8 boreholes or anisotropy mode)
+        // Include full Z data for anisotropic distance calculation
+        // CRITICAL FIX: Use p.z (North-South) not p.y (surface elevation) for distance calculations
+        dataPoints = layerPoints.map(p => ({
+          x: p.x,
+          y: p.z,  // N-S coordinate (matches grid coordinate system)
+          value: p.bottomZ,
+          topZ: p.topZ,
+          bottomZ: p.bottomZ
+        }));
+      }
+
+      // Choose interpolation method based on anisotropy setting
+      const interpolatedZ = useAnisotropy
+        ? this.inverseDistanceWeightingAnisotropic(gridPoint, dataPoints, power, {
+            maxDistance,
+            scales: anisotropyScales
+          })
+        : this.inverseDistanceWeighting(gridPoint, dataPoints, power, maxDistance);
+
+      // Calculate confidence based on distance to nearest data point
+      const confidence = this.calculateConfidence(gridPoint, dataPoints, maxDistance || 32.8);
+
+      return {
+        ...gridPoint,
+        z: interpolatedZ,
+        confidence
+      };
+    });
 
     // Basic minimum thickness enforcement (enhanced validation applied later)
     const minThickness = 0.1; // 10cm minimum
@@ -490,12 +705,15 @@ export class SpatialInterpolationEngine {
 
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
+    const allZCoordinates = [];
 
     for (const borehole of boreholes) {
+      const zValue = borehole.z ?? 0;
+      allZCoordinates.push(zValue);
       minX = Math.min(minX, borehole.x);
       maxX = Math.max(maxX, borehole.x);
-      minY = Math.min(minY, borehole.z); // Use z for N-S in Three.js
-      maxY = Math.max(maxY, borehole.z);
+      minY = Math.min(minY, zValue); // Use z for N-S in Three.js
+      maxY = Math.max(maxY, zValue);
     }
 
     // Add padding
@@ -503,6 +721,15 @@ export class SpatialInterpolationEngine {
     const rangeY = maxY - minY;
     const paddingX = rangeX * (padding - 1) / 2;
     const paddingY = rangeY * (padding - 1) / 2;
+
+    // Check for flat N-S distribution which causes flat interpolated surfaces
+    const uniqueZCount = new Set(allZCoordinates.map(z => Math.round(z * 10) / 10)).size;
+    const allZSame = uniqueZCount === 1;
+    const zSpreadWarningThreshold = 5; // feet
+
+    if (allZSame || rangeY < zSpreadWarningThreshold) {
+      console.warn(`[Interpolation] Boreholes have limited N-S spread (${rangeY.toFixed(1)} ft) - surfaces may appear flat. Space boreholes further apart for better results.`);
+    }
 
     // Ensure minimum size (reduced from 20 to 10)
     const minSize = 10;
@@ -521,8 +748,71 @@ export class SpatialInterpolationEngine {
       minX: minX - paddingX,
       maxX: maxX + paddingX,
       minY: minY - paddingY,
-      maxY: maxY + paddingY
+      maxY: maxY + paddingY,
+      avgSpacing: this.calculateAverageSpacing(boreholes),
+      boreholePositionWarning: allZSame || rangeY < zSpreadWarningThreshold,
+      actualZRange: rangeY
     };
+  }
+
+  /**
+   * Calculate average spacing between boreholes
+   * Used for adaptive confidence distance calculation
+   * @param {Array} boreholes - Array of boreholes
+   * @returns {number} Average distance between nearest neighbors (feet)
+   */
+  static calculateAverageSpacing(boreholes) {
+    if (boreholes.length < 2) return 50; // Default for single borehole
+
+    let totalNearestDistance = 0;
+    let count = 0;
+
+    for (let i = 0; i < boreholes.length; i++) {
+      let nearestDistance = Infinity;
+
+      for (let j = 0; j < boreholes.length; j++) {
+        if (i === j) continue;
+
+        const dx = boreholes[i].x - boreholes[j].x;
+        const dy = boreholes[i].z - boreholes[j].z; // Use z for N-S in Three.js
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+        }
+      }
+
+      if (nearestDistance < Infinity) {
+        totalNearestDistance += nearestDistance;
+        count++;
+      }
+    }
+
+    return count > 0 ? totalNearestDistance / count : 50;
+  }
+
+  /**
+   * Calculate adaptive confidence distance based on borehole spacing
+   * Returns a confidence threshold that adapts to site density:
+   * - Dense sites (close boreholes): shorter confidence distance
+   * - Sparse sites (far boreholes): longer confidence distance
+   *
+   * @param {Array} boreholes - Array of boreholes
+   * @param {Object} options - Configuration options
+   * @returns {number} Adaptive confidence distance (feet)
+   */
+  static calculateAdaptiveConfidenceDistance(boreholes, options = {}) {
+    const {
+      multiplier = 1.5,  // Confidence distance = avg spacing × multiplier
+      minDistance = 20,  // Minimum confidence distance (feet)
+      maxDistance = 100  // Maximum confidence distance (feet)
+    } = options;
+
+    const avgSpacing = this.calculateAverageSpacing(boreholes);
+    const adaptiveDistance = avgSpacing * multiplier;
+
+    // Clamp to reasonable range
+    return Math.max(minDistance, Math.min(maxDistance, adaptiveDistance));
   }
 
   /**
@@ -533,13 +823,15 @@ export class SpatialInterpolationEngine {
    */
   static applyGeologicalValidation(layerSequence, validationOptions = {}) {
 
-    // Default validation options
+    // Default validation options - NATURAL MODE DEFAULTS
+    // These allow realistic geological variation. Override with conservative
+    // settings by passing validationOptions from interpolationStyleSettings.
     const options = {
-      minThickness: 0.15,       // 15cm minimum (slightly more conservative)
-      maxSlope: 30,             // 30° maximum slope (geologically reasonable)
-      smoothingRadius: 1,       // 1 grid unit smoothing
+      minThickness: 0.05,       // 5cm minimum (allows natural thinning)
+      maxSlope: 45,             // 45° maximum slope (allows realistic dips)
+      smoothingRadius: 0,       // No smoothing by default
       enforceOrder: true,       // Enforce stratigraphic ordering
-      applyLateralContinuity: true, // Apply continuity constraints
+      applyLateralContinuity: false, // No averaging by default
       ...validationOptions
     };
 
@@ -564,12 +856,13 @@ export class SpatialInterpolationEngine {
       maxDistance: options.maxDistance || null
     };
 
+    // NATURAL MODE DEFAULTS - allow realistic geological variation
     const validationOptions = {
-      minThickness: options.minThickness || 0.15,
-      maxSlope: options.maxSlope || 30,
-      smoothingRadius: options.smoothingRadius || 1,
+      minThickness: options.minThickness ?? 0.05,
+      maxSlope: options.maxSlope ?? 45,
+      smoothingRadius: options.smoothingRadius ?? 0,
       enforceOrder: options.enforceOrder !== false,
-      applyLateralContinuity: options.applyLateralContinuity !== false
+      applyLateralContinuity: options.applyLateralContinuity ?? false
     };
 
     // Step 1: Interpolate each material layer
@@ -593,5 +886,288 @@ export class SpatialInterpolationEngine {
     const validatedLayers = this.applyGeologicalValidation(interpolatedLayers, validationOptions);
 
     return validatedLayers;
+  }
+
+  /**
+   * Cross-validate interpolation accuracy using Leave-One-Out Cross-Validation (LOOCV)
+   * Tests interpolation accuracy by removing each borehole and predicting its value from others
+   *
+   * @param {Array} boreholes - Array of boreholes with layer data
+   * @param {string} layerName - Name of layer to validate
+   * @param {Object} options - Validation options {power, useKDTree, maxNeighbors}
+   * @returns {Object} Validation statistics {meanError, maxError, rmse, errors[], predictions[]}
+   */
+  static crossValidateLayer(boreholes, layerName, options = {}) {
+    const { power = 2, useKDTree = true, maxNeighbors = 12 } = options;
+
+    if (boreholes.length < 3) {
+      return {
+        valid: false,
+        message: 'Need at least 3 boreholes for cross-validation',
+        meanError: 0,
+        maxError: 0,
+        rmse: 0,
+        errors: [],
+        predictions: []
+      };
+    }
+
+    const errors = [];
+    const predictions = [];
+
+    // Leave-one-out cross-validation
+    for (let i = 0; i < boreholes.length; i++) {
+      const testBorehole = boreholes[i];
+      const trainingBoreholes = boreholes.filter((_, idx) => idx !== i);
+
+      // Get actual value for this borehole's layer
+      const layer = testBorehole.layers?.find(l => l.material === layerName);
+      if (!layer) continue;
+
+      const actualTopZ = layer.from !== undefined ? -layer.from : (layer.depthFrom !== undefined ? -layer.depthFrom : 0);
+      const actualBottomZ = layer.to !== undefined ? -layer.to : (layer.depthTo !== undefined ? -layer.depthTo : 0);
+
+      // Build training data points
+      const trainingPoints = trainingBoreholes
+        .map(bh => {
+          const bhLayer = bh.layers?.find(l => l.material === layerName);
+          if (!bhLayer) return null;
+          return {
+            x: bh.x,
+            y: bh.z, // Use z for N-S coordinate
+            topZ: bhLayer.from !== undefined ? -bhLayer.from : (bhLayer.depthFrom !== undefined ? -bhLayer.depthFrom : 0),
+            bottomZ: bhLayer.to !== undefined ? -bhLayer.to : (bhLayer.depthTo !== undefined ? -bhLayer.depthTo : 0)
+          };
+        })
+        .filter(p => p !== null);
+
+      if (trainingPoints.length < 2) continue;
+
+      // Build KD-tree for training data if enabled
+      let topTree = null;
+      let bottomTree = null;
+      if (useKDTree && trainingPoints.length >= 8) {
+        const topPoints = trainingPoints.map(p => ({ x: p.x, y: p.y, value: p.topZ }));
+        const bottomPoints = trainingPoints.map(p => ({ x: p.x, y: p.y, value: p.bottomZ }));
+        topTree = this.buildKDTree(topPoints);
+        bottomTree = this.buildKDTree(bottomPoints);
+      }
+
+      // Predict top and bottom elevations at test location
+      const testPoint = { x: testBorehole.x, y: testBorehole.z };
+
+      let topDataPoints, bottomDataPoints;
+      if (topTree && bottomTree) {
+        topDataPoints = this.findNearestNeighbors(topTree, testPoint, maxNeighbors);
+        bottomDataPoints = this.findNearestNeighbors(bottomTree, testPoint, maxNeighbors);
+      } else {
+        topDataPoints = trainingPoints.map(p => ({ x: p.x, y: p.y, value: p.topZ }));
+        bottomDataPoints = trainingPoints.map(p => ({ x: p.x, y: p.y, value: p.bottomZ }));
+      }
+
+      const predictedTopZ = this.inverseDistanceWeighting(testPoint, topDataPoints, power);
+      const predictedBottomZ = this.inverseDistanceWeighting(testPoint, bottomDataPoints, power);
+
+      // Calculate errors
+      const topError = Math.abs(predictedTopZ - actualTopZ);
+      const bottomError = Math.abs(predictedBottomZ - actualBottomZ);
+      const avgError = (topError + bottomError) / 2;
+
+      errors.push(avgError);
+      predictions.push({
+        boreholeName: testBorehole.name || `Borehole ${i + 1}`,
+        actual: { topZ: actualTopZ, bottomZ: actualBottomZ },
+        predicted: { topZ: predictedTopZ, bottomZ: predictedBottomZ },
+        error: avgError
+      });
+    }
+
+    if (errors.length === 0) {
+      return {
+        valid: false,
+        message: 'No valid predictions could be made',
+        meanError: 0,
+        maxError: 0,
+        rmse: 0,
+        errors: [],
+        predictions: []
+      };
+    }
+
+    // Calculate statistics
+    const meanError = errors.reduce((sum, e) => sum + e, 0) / errors.length;
+    const maxError = Math.max(...errors);
+    const rmse = Math.sqrt(errors.reduce((sum, e) => sum + e * e, 0) / errors.length);
+
+    return {
+      valid: true,
+      meanError,
+      maxError,
+      rmse,
+      errors,
+      predictions,
+      sampleSize: errors.length
+    };
+  }
+
+  /**
+   * Validate interpolation accuracy across all layers
+   *
+   * @param {Array} boreholes - Array of boreholes
+   * @param {Array} materialLayers - Array of material layer names
+   * @param {Object} options - Validation options
+   * @returns {Object} Comprehensive validation statistics
+   */
+  static validateInterpolationAccuracy(boreholes, materialLayers, options = {}) {
+    if (boreholes.length < 3) {
+      return {
+        valid: false,
+        message: 'Need at least 3 boreholes for validation',
+        overallMeanError: 0,
+        overallMaxError: 0,
+        overallRMSE: 0,
+        layerResults: {}
+      };
+    }
+
+    const layerResults = {};
+    const allErrors = [];
+
+    // Validate each layer
+    for (const layerName of materialLayers) {
+      const validation = this.crossValidateLayer(boreholes, layerName, options);
+      layerResults[layerName] = validation;
+
+      if (validation.valid) {
+        allErrors.push(...validation.errors);
+      }
+    }
+
+    if (allErrors.length === 0) {
+      return {
+        valid: false,
+        message: 'No valid predictions across all layers',
+        overallMeanError: 0,
+        overallMaxError: 0,
+        overallRMSE: 0,
+        layerResults
+      };
+    }
+
+    // Calculate overall statistics
+    const overallMeanError = allErrors.reduce((sum, e) => sum + e, 0) / allErrors.length;
+    const overallMaxError = Math.max(...allErrors);
+    const overallRMSE = Math.sqrt(allErrors.reduce((sum, e) => sum + e * e, 0) / allErrors.length);
+
+    return {
+      valid: true,
+      overallMeanError,
+      overallMaxError,
+      overallRMSE,
+      layerResults,
+      totalPredictions: allErrors.length
+    };
+  }
+
+  /**
+   * Validate borehole positions for interpolation quality
+   * Checks if boreholes are spatially distributed enough for meaningful IDW
+   *
+   * @param {Array} boreholes - Array of boreholes
+   * @returns {Object} Validation result with warnings and suggestions
+   */
+  static validateBoreholePositions(boreholes) {
+    if (!boreholes || boreholes.length === 0) {
+      return { valid: false, error: 'No boreholes provided' };
+    }
+
+    if (boreholes.length === 1) {
+      return {
+        valid: true,
+        warning: 'Only 1 borehole - surfaces will be flat (horizontal continuity assumed)',
+        suggestions: ['Add more boreholes for varied surfaces']
+      };
+    }
+
+    // Check X (E-W) distribution
+    const xValues = boreholes.map(bh => bh.x ?? 0);
+    const xRange = Math.max(...xValues) - Math.min(...xValues);
+
+    // Check Z (N-S) distribution - this is the critical one
+    const zValues = boreholes.map(bh => bh.z ?? 0);
+    const zRange = Math.max(...zValues) - Math.min(...zValues);
+    const uniqueZ = new Set(zValues.map(z => Math.round(z * 10) / 10)).size;
+    const allZZero = zValues.every(z => Math.abs(z) < 0.1);
+
+    const warnings = [];
+    const suggestions = [];
+
+    if (allZZero) {
+      warnings.push('ALL boreholes have z=0 (N-S coordinate not set)');
+      suggestions.push(
+        'Click at different North-South positions when placing boreholes',
+        'Upload a site map and place boreholes at actual positions',
+        'Edit boreholes to set z-coordinates manually'
+      );
+    } else if (zRange < 5) {
+      warnings.push(`N-S spread is only ${zRange.toFixed(1)} ft - surfaces may appear flat`);
+      suggestions.push('Space boreholes further apart in the N-S direction');
+    }
+
+    if (xRange < 5 && zRange < 5) {
+      warnings.push('Boreholes are clustered in a small area - IDW will produce nearly uniform values');
+    }
+
+    return {
+      valid: warnings.length === 0,
+      xRange,
+      zRange,
+      boreholeCount: boreholes.length,
+      uniqueZPositions: uniqueZ,
+      allZZero,
+      warnings,
+      suggestions,
+      positions: boreholes.map(bh => ({
+        name: bh.name,
+        x: bh.x?.toFixed(1),
+        z: bh.z?.toFixed(1)
+      }))
+    };
+  }
+
+  /**
+   * Suggest redistributed positions for boreholes that are all at z=0
+   * Creates a grid layout that preserves x-positions but spreads z-coordinates
+   *
+   * @param {Array} boreholes - Array of boreholes
+   * @param {number} targetSpacing - Desired spacing between boreholes (default: 25 ft)
+   * @returns {Array} Suggested new positions [{id, name, currentZ, suggestedZ}]
+   */
+  static suggestBoreholeRedistribution(boreholes, targetSpacing = 25) {
+    if (!boreholes || boreholes.length <= 1) {
+      return [];
+    }
+
+    const suggestions = [];
+    const count = boreholes.length;
+
+    // Calculate grid dimensions (columns determine row placement)
+    const cols = Math.ceil(Math.sqrt(count));
+
+    boreholes.forEach((bh, index) => {
+      const row = Math.floor(index / cols);
+      const suggestedZ = row * targetSpacing;
+
+      suggestions.push({
+        id: bh.id,
+        name: bh.name,
+        currentX: bh.x,
+        currentZ: bh.z ?? 0,
+        suggestedZ: suggestedZ,
+        changeNeeded: Math.abs((bh.z ?? 0) - suggestedZ) > 1
+      });
+    });
+
+    return suggestions;
   }
 }

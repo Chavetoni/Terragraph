@@ -6,14 +6,19 @@
  */
 
 import React, { useState } from 'react';
-import { useGeologicalModeling } from '../../contexts/OptimizedGeologicalModelingContext';
+import { useGeologicalModeling } from '../../contexts/GeologicalModelingContext';
 import { useDisplayOptions } from '../../contexts/DisplayOptionsContext';
 import UnifiedAccordion from '../ui/UnifiedAccordion';
 import StrataAlignmentControls from '../controls/StrataAlignmentControls';
 
 export function VolumetricSettings() {
   const { modelingSettings, updateSettings, INTERPOLATION_METHODS } = useGeologicalModeling();
-  const { textureSettings, updateTextureSettings } = useDisplayOptions();
+  const {
+    textureSettings,
+    updateTextureSettings,
+    showConfidenceVisualization,
+    setShowConfidenceVisualization
+  } = useDisplayOptions();
   const [expandedSections, setExpandedSections] = useState({
     basic: true,
     interpolation: false,
@@ -263,7 +268,9 @@ export function VolumetricSettings() {
                 onChange={handleWireframeToggle}
                 className="toggle-input"
               />
-              <span className="toggle-switch"></span>
+              <span className={`toggle-switch ${modelingSettings.showWireframe ? 'active' : ''}`}>
+                <span className="toggle-thumb"></span>
+              </span>
               <span className="toggle-text">
                 <span className="toggle-title">Internal Structure (Wireframe)</span>
                 <span className="toggle-description">Shows wireframe to reveal internal elevation layers</span>
@@ -271,6 +278,23 @@ export function VolumetricSettings() {
             </label>
           </div>
 
+          <div className="setting-toggle-group">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={showConfidenceVisualization || false}
+                onChange={(e) => setShowConfidenceVisualization(e.target.checked)}
+                className="toggle-input"
+              />
+              <span className={`toggle-switch ${showConfidenceVisualization ? 'active' : ''}`}>
+                <span className="toggle-thumb"></span>
+              </span>
+              <span className="toggle-text">
+                <span className="toggle-title">Confidence Visualization</span>
+                <span className="toggle-description">Show data certainty - solid near boreholes, transparent where inferred</span>
+              </span>
+            </label>
+          </div>
 
         </div>
       </UnifiedAccordion>
@@ -294,7 +318,9 @@ export function VolumetricSettings() {
                   onChange={handleTexturesToggle}
                   className="toggle-input"
                 />
-                <span className="toggle-switch"></span>
+                <span className={`toggle-switch ${textureSettings.enabled ? 'active' : ''}`}>
+                  <span className="toggle-thumb"></span>
+                </span>
                 <span className="toggle-text">
                   <span className="toggle-title">Enable Soil Textures</span>
                   <span className="toggle-description">Show geological material patterns on 3D surfaces</span>
@@ -358,7 +384,7 @@ export function VolumetricSettings() {
           {textureSettings.enabled && (
             <div className="texture-advanced-controls">
               <h5 className="controls-title">Advanced Options</h5>
-              
+
               <div className="setting-toggle-group">
                 <label className="toggle-label">
                   <input
@@ -367,7 +393,9 @@ export function VolumetricSettings() {
                     onChange={handleBlendToggle}
                     className="toggle-input"
                   />
-                  <span className="toggle-switch"></span>
+                  <span className={`toggle-switch ${textureSettings.blendWithColor ? 'active' : ''}`}>
+                    <span className="toggle-thumb"></span>
+                  </span>
                   <span className="toggle-text">
                     <span className="toggle-title">Blend with Material Colors</span>
                     <span className="toggle-description">Mix texture patterns with base geological material colors</span>
@@ -383,7 +411,9 @@ export function VolumetricSettings() {
                     onChange={handleAdaptiveToggle}
                     className="toggle-input"
                   />
-                  <span className="toggle-switch"></span>
+                  <span className={`toggle-switch ${textureSettings.adaptToZoom ? 'active' : ''}`}>
+                    <span className="toggle-thumb"></span>
+                  </span>
                   <span className="toggle-text">
                     <span className="toggle-title">Adaptive Zoom Scaling</span>
                     <span className="toggle-description">Automatically adjust pattern size based on camera distance</span>
@@ -494,8 +524,8 @@ export function VolumetricSettings() {
                   />
                 </label>
                 <div className="setting-help">
-                  {modelingSettings.combinedPockets !== false 
-                    ? "One pocket per borehole (cleaner)" 
+                  {modelingSettings.combinedPockets !== false
+                    ? "One pocket per borehole (cleaner)"
                     : "Separate pockets per material (detailed)"}
                 </div>
               </div>

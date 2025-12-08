@@ -1,57 +1,51 @@
-import React, { useEffect, useContext } from 'react';
+import React from 'react';
 import Sidebar from './Sidebar';
 import MainPanel from './MainPanel';
 import RightPanel from './RightPanel';
 import LazyThreeJsCanvas from '../canvas/LazyThreeJsCanvas';
 import PanelToggleButton from '../ui/PanelToggleButton';
 import { useUI } from '../../contexts/UIContext';
-import { ThreeJsContext } from '../../contexts/ThreeJsContext';
 
 const AppLayout = () => {
     const { activePanel, togglePanel, isRightPanelOpen, toggleRightPanel } = useUI();
-    const { handleResize } = useContext(ThreeJsContext);
 
-    const appContainerClasses = [
-        'app-container',
-        !activePanel ? 'main-panel-hidden' : '',
-        !isRightPanelOpen ? 'right-panel-hidden' : ''
-    ].join(' ');
+    const appContainerClasses = 'app-container';
 
-    // Trigger canvas resize when panels toggle with smooth transition
-    useEffect(() => {
-        if (handleResize) {
-            // Immediate resize to start the transition
-            handleResize();
-            
-            // Additional resizes during transition for smoothness
-            const intervals = [50, 100, 150, 200, 250, 300];
-            const timers = intervals.map(delay => 
-                setTimeout(() => handleResize(), delay)
-            );
-            
-            return () => {
-                timers.forEach(timer => clearTimeout(timer));
-            };
-        }
-    }, [isRightPanelOpen, activePanel, handleResize]);
+    // Helper to determine if main panel should be visible
+    const isMainPanelVisible = !!activePanel;
 
     return (
         <div className={appContainerClasses}>
-            <Sidebar />
-            <MainPanel />
+            {/* Background Canvas */}
             <div className="content-area">
                 <LazyThreeJsCanvas />
             </div>
-            <RightPanel />
+
+            {/* Floating Sidebar */}
+            <Sidebar className="glass-panel" />
+
+            {/* Floating Main Panel */}
+            <div className={`main-panel glass-panel ${!isMainPanelVisible ? 'hidden' : ''}`}>
+                <MainPanel className="" />
+            </div>
+
+            {/* Floating Right Panel (Inspector with Geological Modeling) */}
+            {isRightPanelOpen && (
+                <RightPanel className="" />
+            )}
+
+            {/* Toggles */}
             <PanelToggleButton
                 onClick={() => togglePanel(activePanel || 'sitemap')}
-                isPanelOpen={!!activePanel}
+                isPanelOpen={isMainPanelVisible}
                 direction="left"
+                className={`panel-toggle-btn left ${isMainPanelVisible ? 'open' : ''}`}
             />
             <PanelToggleButton
                 onClick={toggleRightPanel}
                 isPanelOpen={isRightPanelOpen}
                 direction="right"
+                className={`panel-toggle-btn right ${isRightPanelOpen ? 'open' : ''}`}
             />
         </div>
     );

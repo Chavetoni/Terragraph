@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useContext } from 'react';
 import { ThreeJsContext } from '../../contexts/ThreeJsContext';
-import { useGeologicalModeling } from '../../contexts/OptimizedGeologicalModelingContext';
+import { useGeologicalModeling } from '../../contexts/GeologicalModelingContext';
 import { useDisplayOptions } from '../../contexts/DisplayOptionsContext';
 import { createGlassmorphismLabel } from '../../utils/threeJsHelpers';
 import { Box3, BufferGeometry, Group, Line, LineBasicMaterial, Vector3 } from 'three';
@@ -13,7 +13,7 @@ export function VolumetricLabels() {
   const { scene, sceneManager, isInitialized } = useContext(ThreeJsContext);
   const { prototypeResult } = useGeologicalModeling();
   const { showLabels } = useDisplayOptions();
-  
+
   const labelsRef = useRef([]);
   const labelGroupRef = useRef(null);
 
@@ -37,7 +37,7 @@ export function VolumetricLabels() {
     }
 
     const materialMap = new Map();
-    
+
     volumes.forEach((volume, index) => {
       if (volume.type === 'pocket') {
         return; // Skip pocket volumes for labels
@@ -66,11 +66,11 @@ export function VolumetricLabels() {
           material = nameMatch[1].toUpperCase();
         }
       }
-      
+
       if (!material) {
         return;
       }
-      
+
       if (!materialMap.has(material)) {
         // Calculate average depth and position for this material
         const bbox = new Box3();
@@ -78,7 +78,7 @@ export function VolumetricLabels() {
           bbox.setFromObject(volume.mesh);
           const center = bbox.getCenter(new Vector3());
           const size = bbox.getSize(new Vector3());
-          
+
           materialMap.set(material, {
             material,
             center: center.clone(),
@@ -92,7 +92,7 @@ export function VolumetricLabels() {
         }
       }
     });
-    
+
     return Array.from(materialMap.values());
   }, []);
 
@@ -100,14 +100,14 @@ export function VolumetricLabels() {
   // Stable function - no dependencies, so it doesn't need to be in useEffect deps
   const calculateLabelPosition = useCallback((materialData, modelBounds) => {
     const { center, bounds } = materialData;
-    
+
     // Calculate dynamic offset based on model dimensions
     const size = new Vector3();
     modelBounds.getSize(size);
     const modelDiameter = Math.max(size.x, size.z);
     const STANDARD_SITE_SIZE = 164; // From SCALE constants
     const scaleRatio = modelDiameter / STANDARD_SITE_SIZE;
-    
+
     // Dynamic spacing - proportional to model size but with limits
     let labelOffset;
     if (scaleRatio < 0.1) {
@@ -120,12 +120,12 @@ export function VolumetricLabels() {
       // Normal size models - proportional positioning (3-6 units based on scale)
       labelOffset = 3 + (scaleRatio * 1.5);
     }
-    
+
     // Position label to the right of the volumetric model with dynamic spacing
     const labelX = bounds.max.x + labelOffset;
     const labelY = center.y; // Center vertically with the material
     const labelZ = center.z; // Same Z position as material center
-    
+
     return new Vector3(labelX, labelY, labelZ);
   }, []);
 
@@ -134,12 +134,12 @@ export function VolumetricLabels() {
       // Clear labels when not showing
       if (labelGroupRef.current) {
         scene.remove(labelGroupRef.current);
-        
+
         // Clear CSS3D labels from scene manager
         labelsRef.current.forEach((labelId, index) => {
           sceneManager.removeCSS3D(labelId);
         });
-        
+
         labelGroupRef.current = null;
         labelsRef.current = [];
       }
@@ -164,15 +164,15 @@ export function VolumetricLabels() {
     if (validVolumes.length === 0) {
       return;
     }
-    
+
     // Clear previous labels
     if (labelGroupRef.current) {
       scene.remove(labelGroupRef.current);
-      
+
       labelsRef.current.forEach((labelId, index) => {
         sceneManager.removeCSS3D(labelId);
       });
-      
+
       labelGroupRef.current = null;
       labelsRef.current = [];
     }
@@ -185,7 +185,7 @@ export function VolumetricLabels() {
     // Create label group for organization
     const labelGroup = new Group();
     labelGroup.name = 'VolumetricLabels';
-    
+
     // Calculate model bounds for positioning - multi-tier fallback approach
     // 1. Use mesh bounds if available (optimal)
     // 2. Use volume extent data if mesh not ready (good)
@@ -247,23 +247,23 @@ export function VolumetricLabels() {
         opacity: 0.6,
         transparent: true
       });
-      
+
       const lineGeometry = new BufferGeometry().setFromPoints([
         new Vector3(materialData.bounds.max.x, materialData.center.y, materialData.center.z),
         new Vector3(labelPosition.x - 1.0, labelPosition.y, labelPosition.z)
       ]);
-      
+
       const connectorLine = new Line(lineGeometry, lineMaterial);
       labelGroup.add(connectorLine);
     });
-    
+
     // Add label group to scene
     if (labelGroup.children.length > 0) {
       scene.add(labelGroup);
       labelGroupRef.current = labelGroup;
     }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isInitialized,
     scene,
@@ -281,14 +281,14 @@ export function VolumetricLabels() {
     return () => {
       if (labelGroupRef.current) {
         scene?.remove(labelGroupRef.current);
-        
+
         // Clear CSS3D labels
         if (sceneManager) {
           labelsRef.current.forEach((labelId, index) => {
             sceneManager.removeCSS3D(labelId);
           });
         }
-        
+
         labelGroupRef.current = null;
         labelsRef.current = [];
       }

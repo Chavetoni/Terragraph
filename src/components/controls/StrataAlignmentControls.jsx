@@ -7,6 +7,7 @@ import React from 'react';
 import { useDisplayOptions } from '../../contexts/DisplayOptionsContext';
 import StandardButton from '../ui/StandardButton';
 import { StandardInput, StandardFormGroup } from '../ui/StandardForm';
+import { handleWholeUnitScroll, handleWholeUnitKeyboard } from '../../utils/numericInputHelpers';
 
 const StrataAlignmentControls = ({ className = '' }) => {
   const {
@@ -92,15 +93,21 @@ const StrataAlignmentControls = ({ className = '' }) => {
             {/* Position Controls */}
             <StandardFormGroup>
               <h4 className="form-label-new text-base font-semibold mb-3">Position (feet)</h4>
-              <div className="grid grid-cols-3 gap-3">
-                {['x', 'y', 'z'].map((axis) => (
+              <div className="space-y-3">
+                {[
+                  { axis: 'x', label: 'East-West' },
+                  { axis: 'y', label: 'North-South' },
+                  { axis: 'z', label: 'Elevation' }
+                ].map(({ axis, label }) => (
                   <StandardInput
                     key={axis}
-                    label={`${axis.toUpperCase()} ${axis === 'x' ? '' : axis === 'y' ? '' : ''}`}
+                    label={`${axis.toUpperCase()} - ${label}`}
                     type="number"
                     value={alignmentSettings.position[axis].toFixed(2)}
                     onChange={(e) => handlePositionChange(axis, e.target.value)}
-                    step="0.5"
+                    onWheel={(e) => handleWholeUnitScroll(e, (val) => handlePositionChange(axis, val))}
+                    onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => handlePositionChange(axis, val))}
+                    step="any"
                     className="text-sm"
                   />
                 ))}
@@ -110,14 +117,20 @@ const StrataAlignmentControls = ({ className = '' }) => {
             {/* Rotation Controls */}
             <StandardFormGroup>
               <h4 className="form-label-new text-base font-semibold mb-3">Rotation (degrees)</h4>
-              <div className="grid grid-cols-3 gap-3">
-                {['x', 'y', 'z'].map((axis) => (
+              <div className="space-y-3">
+                {[
+                  { axis: 'x', label: 'Roll' },
+                  { axis: 'y', label: 'Pitch' },
+                  { axis: 'z', label: 'Yaw' }
+                ].map(({ axis, label }) => (
                   <StandardInput
                     key={axis}
-                    label={`${axis.toUpperCase()} ${axis === 'x' ? '' : axis === 'y' ? '' : ''}`}
+                    label={`${axis.toUpperCase()} - ${label}`}
                     type="number"
                     value={rotationDegrees[axis].toFixed(1)}
                     onChange={(e) => handleRotationChange(axis, e.target.value)}
+                    onWheel={(e) => handleWholeUnitScroll(e, (val) => handleRotationChange(axis, val), { min: -180, max: 180, step: 5 })}
+                    onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => handleRotationChange(axis, val), { min: -180, max: 180, step: 5 })}
                     step="5"
                     min="-180"
                     max="180"
@@ -130,14 +143,20 @@ const StrataAlignmentControls = ({ className = '' }) => {
             {/* Scale Controls */}
             <StandardFormGroup>
               <h4 className="form-label-new text-base font-semibold mb-3">Scale</h4>
-              <div className="grid grid-cols-3 gap-3">
-                {['x', 'y', 'z'].map((axis) => (
+              <div className="space-y-3">
+                {[
+                  { axis: 'x', label: 'Width Scale' },
+                  { axis: 'y', label: 'Length Scale' },
+                  { axis: 'z', label: 'Height Scale' }
+                ].map(({ axis, label }) => (
                   <StandardInput
                     key={axis}
-                    label={`${axis.toUpperCase()} ${axis === 'x' ? '' : axis === 'y' ? '' : ''}`}
+                    label={`${axis.toUpperCase()} - ${label}`}
                     type="number"
                     value={alignmentSettings.scale[axis].toFixed(2)}
                     onChange={(e) => handleScaleChange(axis, e.target.value)}
+                    onWheel={(e) => handleWholeUnitScroll(e, (val) => handleScaleChange(axis, val), { min: 0.1, max: 5.0, step: 0.1, allowDecimals: true, precision: 1 })}
+                    onKeyDown={(e) => handleWholeUnitKeyboard(e, (val) => handleScaleChange(axis, val), { min: 0.1, max: 5.0, step: 0.1, allowDecimals: true, precision: 1 })}
                     step="0.1"
                     min="0.1"
                     max="5.0"

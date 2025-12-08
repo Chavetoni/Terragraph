@@ -1,0 +1,149 @@
+/* Unified Accordion Styling */
+.unified-accordion {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.unified-accordion:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.accordion-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+
+.accordion-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.accordion-header.expanded {
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.accordion-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.accordion-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.accordion-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.accordion-badge.required {
+    background: rgba(255, 87, 34, 0.1);
+    color: #ff5722;
+    border: 1px solid rgba(255, 87, 34, 0.2);
+}
+
+.accordion-badge.professional {
+    background: rgba(33, 150, 243, 0.1);
+    color: #2196f3;
+    border: 1px solid rgba(33, 150, 243, 0.2);
+}
+
+.accordion-badge.optional {
+    background: rgba(158, 158, 158, 0.1);
+    color: #9e9e9e;
+    border: 1px solid rgba(158, 158, 158, 0.2);
+}
+
+.accordion-badge.visual {
+    background: rgba(156, 39, 176, 0.1);
+    color: #9c27b0;
+    border: 1px solid rgba(156, 39, 176, 0.2);
+}
+
+.accordion-badge.advanced {
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.accordion-chevron {
+    color: var(--text-secondary);
+    transition: transform 0.3s ease;
+}
+
+.accordion-chevron.expanded {
+    transform: rotate(180deg);
+    color: var(--accent-color);
+}
+
+.accordion-content {
+    padding: 16px;
+    background: var(--bg-panel);
+    animation: slideDown 0.3s ease-out;
+    /* Fixed max-height for reliable scrollability */
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Scrollbar styling for Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Custom scrollbar for accordion content */
+.accordion-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.accordion-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 3px;
+    margin: 4px 0;
+}
+
+.accordion-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    transition: background 200ms ease;
+}
+
+.accordion-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.accordion-content::-webkit-scrollbar-thumb:active {
+    background: var(--accent-color, #3B82F6);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

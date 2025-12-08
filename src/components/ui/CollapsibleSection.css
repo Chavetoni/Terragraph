@@ -1,0 +1,183 @@
+/**
+ * Collapsible Section Styles (Legacy Component)
+ * Basic accordion styling for backward compatibility
+ * Note: Consider migrating to PanelSection.jsx for enhanced features
+ */
+
+/* ===== HEADER ===== */
+.collapsible-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-spring);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  user-select: none;
+}
+
+.collapsible-section-header:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-highlight);
+  transform: translateY(-1px);
+}
+
+.collapsible-section-header:active {
+  transform: translateY(0);
+}
+
+.collapsible-section-header:focus {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* ===== ARROW ICON ===== */
+.arrow-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: transform var(--duration-fast) var(--ease-spring), color var(--duration-fast);
+  transform: rotate(0deg);
+  flex-shrink: 0;
+}
+
+.arrow-icon-open {
+  transform: rotate(90deg);
+  color: var(--accent-primary);
+}
+
+.collapsible-section-header:hover .arrow-icon {
+  color: var(--accent-primary);
+}
+
+/* ===== CONTENT ===== */
+.collapsible-section-content {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 300ms var(--ease-spring), opacity 200ms var(--ease-spring), padding 200ms var(--ease-spring);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-top: none;
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.collapsible-section-content-open {
+  /* Fixed max-height for reliable scrollability (consistent with other accordions) */
+  max-height: 400px;
+  opacity: 1;
+  padding: var(--space-lg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Scrollbar styling for Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Custom scrollbar for collapsible section content */
+.collapsible-section-content-open::-webkit-scrollbar {
+  width: 6px;
+}
+
+.collapsible-section-content-open::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+.collapsible-section-content-open::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  transition: background 200ms ease;
+}
+
+.collapsible-section-content-open::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.collapsible-section-content-open::-webkit-scrollbar-thumb:active {
+  background: var(--accent-primary, #3B82F6);
+}
+
+/* ===== OPEN STATE ADJUSTMENTS ===== */
+.collapsible-section-content-open + .collapsible-section-header {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* If header is before content (natural flow), adjust border */
+.collapsible-section-header:has(+ .collapsible-section-content.collapsible-section-content-open) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+
+/* Fallback for browsers without :has() support */
+@supports not (selector(:has(*))) {
+  .collapsible-section-header[aria-expanded="true"] {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent;
+  }
+}
+
+/* ===== NESTED CONTENT SPACING ===== */
+.collapsible-section-content-open > * {
+  animation: fadeInContent 300ms var(--ease-spring);
+}
+
+@keyframes fadeInContent {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 640px) {
+  .collapsible-section-header {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 14px;
+  }
+
+  .collapsible-section-content-open {
+    padding: var(--space-md);
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-section-header,
+  .arrow-icon,
+  .collapsible-section-content,
+  .collapsible-section-content-open > * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .collapsible-section-header {
+    border-width: 2px;
+  }
+
+  .collapsible-section-content {
+    border-width: 2px;
+  }
+}

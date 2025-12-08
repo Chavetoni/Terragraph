@@ -1,5 +1,6 @@
 // src/components/ui/LegendItem.js
 import React from 'react';
+import './LegendItem.css';
 
 const LegendItem = ({ layer, index }) => {
   return (

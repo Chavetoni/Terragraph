@@ -1,0 +1,114 @@
+/* Display Options Component Styles */
+
+.display-options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.display-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.display-card.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.display-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.header-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.display-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.display-option-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.display-option-item:hover {
+  padding-left: 4px;
+}
+
+.option-label {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: color 0.2s ease;
+}
+
+.display-option-item:hover .option-label {
+  color: var(--accent-primary);
+}
+
+/* Toggle Switch - Fixed to prevent double state display */
+.toggle-switch {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.3s ease;  /* Only transition background, not all */
+  flex-shrink: 0;
+  margin-right: 4px;
+  overflow: hidden;  /* FIX: Prevent thumb from appearing outside bounds */
+}
+
+.toggle-switch.active {
+  background: var(--accent-primary);
+}
+
+/* Toggle Thumb - Fixed to only show single state */
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);  /* FIX: Only transition transform */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  will-change: transform;  /* FIX: Enable GPU acceleration for smoother transitions */
+}
+
+.toggle-switch.active .toggle-thumb {
+  transform: translateX(20px);
+}
+
+/* Prevent any accidental text content from showing */
+.toggle-switch::before,
+.toggle-switch::after,
+.toggle-thumb::before,
+.toggle-thumb::after {
+  display: none !important;
+  content: none !important;
+}

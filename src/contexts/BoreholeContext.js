@@ -3,7 +3,7 @@ import { Borehole, BOREHOLE_TYPES } from '../models/Borehole';
 import { ThreeJsContext } from './ThreeJsContext';
 import { useLayers } from './LayersContext';
 import { useDisplayOptions } from './DisplayOptionsContext';
-import { useGeologicalModeling } from './OptimizedGeologicalModelingContext';
+import { useGeologicalModeling } from './GeologicalModelingContext';
 import { getBoreholeDimensions } from '../utils/scaleConstants';
 import { BoreholeVisualizer } from '../services/BoreholeVisualizer';
 import { Color, Matrix4, Mesh, MeshBasicMaterial, PlaneGeometry, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three';
@@ -39,20 +39,20 @@ export const BoreholeProvider = ({ children }) => {
   const objectPool = useRef({
     vectors: [],
     matrices: [],
-    
+
     getVector3: () => {
       return objectPool.current.vectors.pop() || new Vector3();
     },
-    
+
     returnVector3: (vector) => {
       vector.set(0, 0, 0);
       objectPool.current.vectors.push(vector);
     },
-    
+
     getMatrix4: () => {
       return objectPool.current.matrices.pop() || new Matrix4();
     },
-    
+
     returnMatrix4: (matrix) => {
       matrix.identity();
       objectPool.current.matrices.push(matrix);
@@ -66,13 +66,13 @@ export const BoreholeProvider = ({ children }) => {
       raycasterRef.current.params.Line.threshold = 0.1;
     }
   }, []);
-  
+
   const { sceneManager, isInitialized, camera, scene, renderer } = useContext(ThreeJsContext);
   const { updateCapabilities } = useGeologicalModeling();
-  
+
   const { layers: soilLayers } = useLayers();
-  const { 
-    showBoreholes, 
+  const {
+    showBoreholes,
     boreholesIndividualVisibility,
     showBoreholeStrata,
     boreholesStrataVisibility,
@@ -104,16 +104,16 @@ export const BoreholeProvider = ({ children }) => {
       prev.map(b => (b.id === id ? b.update(updatedData) : b))
     );
     if (selectedBorehole && selectedBorehole.id === id) {
-        setSelectedBorehole(prev => prev.update(updatedData));
+      setSelectedBorehole(prev => prev.update(updatedData));
     }
   }, [selectedBorehole]);
 
   const deleteBorehole = useCallback((id) => {
     setBoreholes(prev => prev.filter(b => b.id !== id));
     if (selectedBorehole && selectedBorehole.id === id) {
-        setSelectedBorehole(null);
+      setSelectedBorehole(null);
     }
-    
+
     // Also remove any associated isolated pockets
     if (sceneManager && sceneManager.objects) {
       // Check for combined pocket (contains borehole ID)
@@ -122,7 +122,7 @@ export const BoreholeProvider = ({ children }) => {
 
         sceneManager.remove(combinedPocketKey);
       }
-      
+
       // For now, we can't easily identify material-specific pockets by borehole ID
       // since they use material-based unique keys. This would require storing
       // the borehole ID in the mesh userData when creating pockets.
@@ -133,14 +133,14 @@ export const BoreholeProvider = ({ children }) => {
   const selectBorehole = useCallback((id) => {
     const borehole = boreholes.find(b => b.id === id) || null;
     setSelectedBorehole(borehole);
-    
+
     // Update visual state
     if (visualizerRef.current) {
       // Reset all markers to normal
       boreholes.forEach(bh => {
         visualizerRef.current.updateMarkerState(bh.id, 'normal');
       });
-      
+
       // Apply selection state to selected borehole
       if (borehole) {
         visualizerRef.current.updateMarkerState(borehole.id, 'selected');
@@ -150,14 +150,14 @@ export const BoreholeProvider = ({ children }) => {
 
   const hoverBorehole = useCallback((id) => {
     if (id === hoveredBorehole) return;
-    
+
     // Remove hover from previous borehole
     if (hoveredBorehole && visualizerRef.current) {
       visualizerRef.current.updateMarkerState(hoveredBorehole, 'normal');
     }
-    
+
     setHoveredBorehole(id);
-    
+
     // Apply hover to new borehole
     if (id && visualizerRef.current) {
       visualizerRef.current.updateMarkerState(id, 'hover');
@@ -167,7 +167,7 @@ export const BoreholeProvider = ({ children }) => {
 
   const addSimpleBorehole = useCallback((x, y, z, name, depth = 10, type = 'GENERAL', color = null) => {
     const boreholeId = Date.now();
-    
+
     // Automatically assign layers based on soil layers if they exist
     let boreholeLayers = [];
     if (soilLayers && soilLayers.length > 0) {
@@ -176,7 +176,7 @@ export const BoreholeProvider = ({ children }) => {
         const layerDepth = parseFloat(layer.depth) || 1;
         const thickness = Math.min(layerDepth, depth - currentDepth);
         currentDepth += thickness;
-        
+
         if (thickness > 0) {
           return {
             id: layer.id,
@@ -187,7 +187,7 @@ export const BoreholeProvider = ({ children }) => {
         return null;
       }).filter(Boolean);
     }
-    
+
     const newBorehole = {
       id: boreholeId,
       name: name || `BH-${boreholes.length + 1}`,
@@ -226,7 +226,7 @@ export const BoreholeProvider = ({ children }) => {
           thickness: 3
         },
         {
-          id: 'layer2', 
+          id: 'layer2',
           from: 3,
           to: 7,
           material: 'SAND',
@@ -249,7 +249,7 @@ export const BoreholeProvider = ({ children }) => {
 
   const removeBorehole = useCallback((idToRemove) => {
     setBoreholes(prev => prev.filter(bh => bh.id !== idToRemove));
-    
+
     // Remove individual borehole visual representation from scene
     if (sceneManager && visualizerRef.current) {
       // Get the marker before removing it for proper disposal
@@ -259,7 +259,7 @@ export const BoreholeProvider = ({ children }) => {
       }
       sceneManager.remove(`borehole_${idToRemove}`);
     }
-    
+
     // Clean up strata visibility state for removed borehole
     if (setBoreholesStrataVisibility) {
       setBoreholesStrataVisibility(prev => {
@@ -268,11 +268,11 @@ export const BoreholeProvider = ({ children }) => {
         return updated;
       });
     }
-    
+
     // Also ensure no collective borehole group exists (cleanup from old system)
     if (sceneManager) {
       sceneManager.remove('boreholes');
-      
+
       // Also remove any associated isolated pockets
       if (sceneManager.objects) {
         // Check for combined pocket (contains borehole ID)
@@ -281,7 +281,7 @@ export const BoreholeProvider = ({ children }) => {
 
           sceneManager.remove(combinedPocketKey);
         }
-        
+
         // For now, we can't easily identify material-specific pockets by borehole ID
         // since they use material-based unique keys. This would require storing
         // the borehole ID in the mesh userData when creating pockets.
@@ -294,10 +294,10 @@ export const BoreholeProvider = ({ children }) => {
   const clearAllBoreholes = useCallback(() => {
     // Get all current borehole IDs before clearing
     const allIds = boreholes.map(bh => bh.id);
-    
+
     // Clear the boreholes array
     setBoreholes([]);
-    
+
     // Remove all visual representations from scene
     if (sceneManager && visualizerRef.current) {
       allIds.forEach(id => {
@@ -308,16 +308,16 @@ export const BoreholeProvider = ({ children }) => {
         }
         sceneManager.remove(`borehole_${id}`);
       });
-      
+
       // Also remove any collective group
       sceneManager.remove('boreholes');
     }
-    
+
     // Clear all strata visibility states
     if (setBoreholesStrataVisibility) {
       setBoreholesStrataVisibility(new Map());
     }
-    
+
     // Clear selection state
     setSelectedBorehole(null);
     setHoveredBorehole(null);
@@ -329,7 +329,7 @@ export const BoreholeProvider = ({ children }) => {
     window.addTestBoreholeWithLayers = addTestBoreholeWithLayers;
     window.addBorehole = addBorehole;
     window.clearAllBoreholes = clearAllBoreholes;
-    
+
     // Debug function to create a test borehole with water table
     window.addTestBoreholeWithWaterTable = () => {
 
@@ -356,7 +356,7 @@ export const BoreholeProvider = ({ children }) => {
 
       return newBorehole;
     };
-    
+
     // Debug function to check water table visibility
     window.checkWaterTableVisibility = () => {
 
@@ -364,7 +364,7 @@ export const BoreholeProvider = ({ children }) => {
 
       });
     };
-    
+
     // Debug function to test texture rendering
     window.addTextureTestBorehole = () => {
 
@@ -391,12 +391,12 @@ export const BoreholeProvider = ({ children }) => {
 
       return newBorehole;
     };
-    
+
     // Debug function to check geological modeling capabilities
     window.checkGeologicalCapabilities = () => {
       return {
         withLayers: boreholes.filter(bh => bh.layers && bh.layers.length > 0),
-        withCoordinates: boreholes.filter(bh => 
+        withCoordinates: boreholes.filter(bh =>
           typeof bh.x === 'number' && typeof bh.y === 'number'
         )
       };
@@ -407,28 +407,28 @@ export const BoreholeProvider = ({ children }) => {
       if (boreholes.length < 3) {
         return;
       }
-      
-      const positions = boreholes.slice(0, 3).map(bh => ({ 
-        x: bh.x, 
+
+      const positions = boreholes.slice(0, 3).map(bh => ({
+        x: bh.x,
         z: bh.z,  // Use Z for horizontal positioning
         y: bh.y,  // Y is elevation (can be same for all)
-        name: bh.name 
+        name: bh.name
       }));
       const [p1, p2, p3] = positions;
       const area = Math.abs(
-        p1.x * (p2.z - p3.z) + 
-        p2.x * (p3.z - p1.z) + 
+        p1.x * (p2.z - p3.z) +
+        p2.x * (p3.z - p1.z) +
         p3.x * (p1.z - p2.z)
       ) / 2;
-      
-      
+
+
       if (area < 0.01) {
       } else {
       }
-      
+
       // Check layer data
       const withLayers = boreholes.filter(bh => bh.layers && bh.layers.length > 0);
-      
+
       if (withLayers.length < 3) {
       }
     };
@@ -437,10 +437,10 @@ export const BoreholeProvider = ({ children }) => {
     window.addTriangularTestBoreholes = () => {
       // Clear existing boreholes first
       setBoreholes([]);
-      
+
       setTimeout(() => {
         const timestamp = Date.now();
-        
+
         // Create 3 boreholes in triangular pattern with Y positions at or below 0
         // Each material appears in all 3 for proper interpolation
         const boreholeData1 = {
@@ -489,7 +489,7 @@ export const BoreholeProvider = ({ children }) => {
 
       }, 100);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
 
     // Cleanup: Remove global debug functions
     return () => {
@@ -501,24 +501,24 @@ export const BoreholeProvider = ({ children }) => {
   }, [addTestBoreholeWithLayers, boreholes, addBorehole, clearAllBoreholes]);
 
   const updateBoreholeDynamic = useCallback((id, updates) => {
-    setBoreholes(prev => 
-      prev.map(bh => 
-        bh.id === id 
+    setBoreholes(prev =>
+      prev.map(bh =>
+        bh.id === id
           ? { ...bh, ...updates }
           : bh
       )
     );
-    
+
     // Update visual representation (borehole marker only)
     if (sceneManager && visualizerRef.current) {
       // Remove existing visual
       sceneManager.remove(`borehole_${id}`);
-      
+
       // Find the updated borehole data
       const updatedBorehole = boreholes.find(bh => bh.id === id);
       if (updatedBorehole) {
         const newBorehole = { ...updatedBorehole, ...updates };
-        
+
         // Create enhanced marker using the new visualizer
         const enhancedMarker = visualizerRef.current.createEnhancedBoreholeMarker(
           newBorehole,
@@ -532,7 +532,7 @@ export const BoreholeProvider = ({ children }) => {
         sceneManager.add(`borehole_${newBorehole.id}`, enhancedMarker);
       }
     }
-    
+
   }, [sceneManager, boreholes, soilLayers, showBoreholeStrata, showWaterTable, textureSettings]);
 
   const createBoreholeVisual = useCallback((borehole) => {
@@ -557,7 +557,7 @@ export const BoreholeProvider = ({ children }) => {
 
     // Add to scene manager
     sceneManager.add(`borehole_${borehole.id}`, enhancedMarker);
-    
+
   }, [sceneManager, scene, soilLayers, showBoreholeStrata, showWaterTable, textureSettings]);
 
   // Camera synchronization validation
@@ -575,7 +575,7 @@ export const BoreholeProvider = ({ children }) => {
 
   const calculateNormalizedCoordinates = useCallback((event, canvasElement) => {
     const rect = canvasElement.getBoundingClientRect();
-    
+
     // Reuse mouse vector to reduce garbage collection
     const mouse = mouseVectorRef.current;
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -586,23 +586,23 @@ export const BoreholeProvider = ({ children }) => {
 
   const addDebugMarker = useCallback((position, color = 0xff0000) => {
     if (!sceneManager) return;
-    
+
     // Remove existing debug marker
     sceneManager.remove('debug_marker');
-    
+
     // Create small debug sphere
     const geometry = new SphereGeometry(0.2, 8, 8);
     const material = new MeshBasicMaterial({ color });
     const marker = new Mesh(geometry, material);
     marker.position.copy(position);
-    
+
     sceneManager.add('debug_marker', marker);
-    
+
     // Remove debug marker after 3 seconds
     const timeoutId = setTimeout(() => {
       sceneManager.remove('debug_marker');
     }, 3000);
-    
+
     // Store timeout for cleanup
     if (!window._debugMarkerTimeouts) window._debugMarkerTimeouts = [];
     window._debugMarkerTimeouts.push(timeoutId);
@@ -616,13 +616,13 @@ export const BoreholeProvider = ({ children }) => {
       'GridHelper': 3,
       'groundPlane': 4
     };
-    
+
     // Enhanced sorting that considers site map children
     const sortedIntersects = intersects.sort((a, b) => {
       // Check if objects are part of site map
       let aIsSiteMapChild = false;
       let bIsSiteMapChild = false;
-      
+
       let parent = a.object.parent;
       while (parent) {
         if (parent === sceneManager?.get('siteMap')) {
@@ -631,7 +631,7 @@ export const BoreholeProvider = ({ children }) => {
         }
         parent = parent.parent;
       }
-      
+
       parent = b.object.parent;
       while (parent) {
         if (parent === sceneManager?.get('siteMap')) {
@@ -640,29 +640,29 @@ export const BoreholeProvider = ({ children }) => {
         }
         parent = parent.parent;
       }
-      
+
       // Site map children get highest priority
       const aPriority = aIsSiteMapChild ? 1 : (priorityOrder[a.object.name] || priorityOrder[a.object.type] || 5);
       const bPriority = bIsSiteMapChild ? 1 : (priorityOrder[b.object.name] || priorityOrder[b.object.type] || 5);
-      
+
       // If same priority, sort by distance
       if (aPriority === bPriority) {
         return a.distance - b.distance;
       }
-      
+
       return aPriority - bPriority;
     });
-    
-    
+
+
     return sortedIntersects[0];
   }, [sceneManager]);
 
   const adjustIntersectionForSurface = useCallback((intersection, point) => {
     const objectType = intersection.object.type;
     const objectName = intersection.object.name || '';
-    
+
     let adjustedPoint = point.clone();
-    
+
     // Check if the intersected object is part of the site map
     let isSiteMapChild = false;
     let parent = intersection.object.parent;
@@ -673,7 +673,7 @@ export const BoreholeProvider = ({ children }) => {
       }
       parent = parent.parent;
     }
-    
+
     if (isSiteMapChild || objectName === 'siteMap') {
       // For site maps and their children, use the actual intersection point
       // This preserves the elevation of 3D terrain
@@ -688,14 +688,14 @@ export const BoreholeProvider = ({ children }) => {
       // For ground plane, ensure Y=0
       adjustedPoint.y = 0;
     }
-    
+
     return adjustedPoint;
   }, [sceneManager]);
 
   const verifyBoreholeAccuracy = useCallback((intersectionPoint, createdBorehole) => {
     // Add visual debug marker at intersection point
     addDebugMarker(intersectionPoint, 0xff0000); // Red marker for intersection
-    
+
     // Project 3D point back to screen space
     const screenPoint = intersectionPoint.clone();
     screenPoint.project(camera);
@@ -750,7 +750,7 @@ export const BoreholeProvider = ({ children }) => {
       tempPlaneRef.current.position.y = 0;
       tempPlaneRef.current.name = 'groundPlane';
     }
-    
+
     scene.add(tempPlaneRef.current);
     potentialTargets.push(tempPlaneRef.current);
 
@@ -770,10 +770,10 @@ export const BoreholeProvider = ({ children }) => {
       // Smart intersection selection based on surface type
       const selectedIntersection = selectBestIntersection(intersects);
       let intersectionPoint = selectedIntersection.point.clone();
-      
+
       // Adjust position based on object type
       intersectionPoint = adjustIntersectionForSurface(selectedIntersection, intersectionPoint);
-      
+
       // Store intersection data and show modal
       const boreholeData = {
         x: intersectionPoint.x,
@@ -781,21 +781,21 @@ export const BoreholeProvider = ({ children }) => {
         z: intersectionPoint.z,
         defaultName: `BH-${boreholes.length + 1}`
       };
-      
+
       setPendingBoreholeData(boreholeData);
       setShowCreationModal(true);
     } else {
       alert('Could not place borehole. Please try clicking on a visible surface.');
     }
-    
+
     setIsPlacingBorehole(false);
   }, [isPlacingBorehole, boreholes.length, sceneManager, camera, scene, renderer, validateCameraSync, calculateNormalizedCoordinates, selectBestIntersection, adjustIntersectionForSurface]);
 
   const handleBoreholeCreationConfirm = useCallback((boreholeData) => {
     if (!pendingBoreholeData) return;
-    
+
     let createdBorehole;
-    
+
     if (boreholeData.useGlobalLayers) {
       // Default mode: Use the existing addSimpleBorehole system with global soil layers
       // But we need to add the water table data manually since addSimpleBorehole doesn't handle it
@@ -808,18 +808,18 @@ export const BoreholeProvider = ({ children }) => {
         boreholeData.type,
         boreholeData.color
       );
-      
+
       // Add water table data to the created borehole
       if (createdBorehole && (boreholeData.waterTableEncountered || boreholeData.waterTableDepth)) {
 
         // Update the borehole in the array with water table data
-        setBoreholes(prev => prev.map(bh => 
-          bh.id === createdBorehole.id 
-            ? { 
-                ...bh, 
-                waterTableEncountered: boreholeData.waterTableEncountered,
-                waterTableDepth: boreholeData.waterTableDepth 
-              }
+        setBoreholes(prev => prev.map(bh =>
+          bh.id === createdBorehole.id
+            ? {
+              ...bh,
+              waterTableEncountered: boreholeData.waterTableEncountered,
+              waterTableDepth: boreholeData.waterTableDepth
+            }
             : bh
         ));
       }
@@ -843,7 +843,7 @@ export const BoreholeProvider = ({ children }) => {
       setBoreholes(prev => [...prev, newBorehole]);
       createdBorehole = newBorehole;
     }
-    
+
     // Verify placement accuracy
     const intersectionPoint = new Vector3(
       pendingBoreholeData.x,
@@ -851,7 +851,7 @@ export const BoreholeProvider = ({ children }) => {
       pendingBoreholeData.z
     );
     verifyBoreholeAccuracy(intersectionPoint, createdBorehole);
-    
+
     // Clean up
     setShowCreationModal(false);
     setPendingBoreholeData(null);
@@ -874,6 +874,147 @@ export const BoreholeProvider = ({ children }) => {
       });
     }
   }, [boreholes, sceneManager, isInitialized, createBoreholeVisual]);
+
+  // Track previous texture settings and layer colors to detect changes
+  const prevTextureSettingsRef = useRef(null);
+  const prevSoilLayerColorsRef = useRef(null);
+
+  /**
+   * Effect to recreate borehole strata when texture/color settings change
+   * This ensures material color changes are immediately reflected in the 3D visualization
+   * without requiring borehole data to change
+   */
+  useEffect(() => {
+    if (!sceneManager || !isInitialized || !visualizerRef.current || boreholes.length === 0) return;
+
+    // Create a stable key from textureSettings to detect meaningful changes
+    const currentSettingsKey = textureSettings ?
+      `${textureSettings.enabled}-${textureSettings.globalIntensity}-${textureSettings.patternScale}` :
+      'default';
+
+    // Create a key from soil layer colors to detect color changes
+    const currentLayerColorsKey = soilLayers ?
+      soilLayers.map(l => `${l.id}-${l.color}`).join('|') :
+      'default';
+
+    // Skip on first render (no previous settings to compare)
+    if (prevTextureSettingsRef.current === null) {
+      prevTextureSettingsRef.current = currentSettingsKey;
+      prevSoilLayerColorsRef.current = currentLayerColorsKey;
+      return;
+    }
+
+    // Detect if texture settings or layer colors changed
+    const textureSettingsChanged = prevTextureSettingsRef.current !== currentSettingsKey;
+    const layerColorsChanged = prevSoilLayerColorsRef.current !== currentLayerColorsKey;
+
+    // Only recreate if settings or colors actually changed
+    if (textureSettingsChanged || layerColorsChanged) {
+      prevTextureSettingsRef.current = currentSettingsKey;
+      prevSoilLayerColorsRef.current = currentLayerColorsKey;
+
+      // Recreate all borehole strata with updated texture/color settings
+      boreholes.forEach(borehole => {
+        const existingVisual = sceneManager.get(`borehole_${borehole.id}`);
+        if (existingVisual) {
+          // Find and dispose the old strata group
+          let oldStrataGroup = null;
+          existingVisual.traverse((child) => {
+            if (child.userData && child.userData.type === 'borehole_strata') {
+              oldStrataGroup = child;
+            }
+          });
+
+          if (oldStrataGroup) {
+            // Dispose old strata
+            visualizerRef.current.disposeBoreholeStrata(oldStrataGroup);
+            existingVisual.remove(oldStrataGroup);
+
+            // Create new strata with updated settings
+            if (borehole.layers && Array.isArray(borehole.layers) && borehole.layers.length > 0) {
+              const newStrataGroup = visualizerRef.current.createBoreholeStrata(
+                borehole,
+                { layers: soilLayers },
+                textureSettings
+              );
+              if (newStrataGroup && newStrataGroup.children.length > 0) {
+                // Preserve visibility state
+                const individualStrataVisible = getBoreholeStrataVisibility(borehole.id);
+                newStrataGroup.visible = showBoreholeStrata && individualStrataVisible;
+                existingVisual.add(newStrataGroup);
+              }
+            }
+          }
+        }
+      });
+    }
+  }, [boreholes, sceneManager, isInitialized, textureSettings, soilLayers, showBoreholeStrata, getBoreholeStrataVisibility]);
+
+  // Track previous borehole layer data to detect changes to individual boreholes
+  const prevBoreholeLayersRef = useRef(new Map());
+
+  /**
+   * Effect to recreate borehole strata when individual borehole layer data changes
+   * This handles the case where user changes material type for a specific layer
+   */
+  useEffect(() => {
+    if (!sceneManager || !isInitialized || !visualizerRef.current || boreholes.length === 0) return;
+
+    boreholes.forEach(borehole => {
+      // Create a key for this borehole's layer data
+      const layerDataKey = borehole.layers && Array.isArray(borehole.layers)
+        ? borehole.layers.map(l => `${l.id}-${l.material}-${l.customColor || ''}-${l.from}-${l.to}`).join('|')
+        : 'no-layers';
+
+      const prevLayerDataKey = prevBoreholeLayersRef.current.get(borehole.id);
+
+      // Check if this borehole's layers changed
+      if (prevLayerDataKey !== undefined && prevLayerDataKey !== layerDataKey) {
+        const existingVisual = sceneManager.get(`borehole_${borehole.id}`);
+        if (existingVisual) {
+          // Find and dispose the old strata group
+          let oldStrataGroup = null;
+          existingVisual.traverse((child) => {
+            if (child.userData && child.userData.type === 'borehole_strata') {
+              oldStrataGroup = child;
+            }
+          });
+
+          if (oldStrataGroup) {
+            // Dispose old strata
+            visualizerRef.current.disposeBoreholeStrata(oldStrataGroup);
+            existingVisual.remove(oldStrataGroup);
+
+            // Create new strata with updated layer data
+            if (borehole.layers && Array.isArray(borehole.layers) && borehole.layers.length > 0) {
+              const newStrataGroup = visualizerRef.current.createBoreholeStrata(
+                borehole,
+                { layers: soilLayers },
+                textureSettings
+              );
+              if (newStrataGroup && newStrataGroup.children.length > 0) {
+                // Preserve visibility state
+                const individualStrataVisible = getBoreholeStrataVisibility(borehole.id);
+                newStrataGroup.visible = showBoreholeStrata && individualStrataVisible;
+                existingVisual.add(newStrataGroup);
+              }
+            }
+          }
+        }
+      }
+
+      // Update the tracked layer data for this borehole
+      prevBoreholeLayersRef.current.set(borehole.id, layerDataKey);
+    });
+
+    // Clean up removed boreholes from the tracking map
+    const currentBoreholeIds = new Set(boreholes.map(b => b.id));
+    for (const id of prevBoreholeLayersRef.current.keys()) {
+      if (!currentBoreholeIds.has(id)) {
+        prevBoreholeLayersRef.current.delete(id);
+      }
+    }
+  }, [boreholes, sceneManager, isInitialized, textureSettings, soilLayers, showBoreholeStrata, getBoreholeStrataVisibility]);
 
   // Remove the old collective borehole rendering system
   useEffect(() => {
@@ -898,10 +1039,10 @@ export const BoreholeProvider = ({ children }) => {
         const individualVisible = boreholesIndividualVisibility.get(borehole.id);
         const isIndividuallyVisible = individualVisible !== undefined ? individualVisible : true;
         const finalVisible = showBoreholes && isIndividuallyVisible;
-        
+
         // Handle visibility without animation to maintain strata control
         boreholeVisual.visible = finalVisible;
-        
+
         // Handle strata and water table visibility separately within the borehole
         boreholeVisual.traverse((child) => {
           if (child.userData && child.userData.type === 'borehole_strata') {
@@ -912,7 +1053,7 @@ export const BoreholeProvider = ({ children }) => {
             child.visible = finalVisible && showWaterTable;
           }
         });
-        
+
         // Also handle CSS3D labels if they exist
         if (sceneManager && sceneManager.css3DObjects) {
           const label = sceneManager.css3DObjects.get(`borehole-pin-label-${borehole.id}`);
@@ -926,20 +1067,20 @@ export const BoreholeProvider = ({ children }) => {
 
   // Debounced capabilities update to prevent cascade re-renders
   const debouncedUpdateCapabilitiesRef = useRef(null);
-  
+
   useEffect(() => {
     if (updateCapabilities) {
       // Clear previous timeout
       if (debouncedUpdateCapabilitiesRef.current) {
         clearTimeout(debouncedUpdateCapabilitiesRef.current);
       }
-      
+
       // Debounce expensive capabilities update by 150ms
       debouncedUpdateCapabilitiesRef.current = setTimeout(() => {
         updateCapabilities(boreholes);
       }, 150);
     }
-    
+
     // Cleanup timeout on unmount or dependency change
     return () => {
       if (debouncedUpdateCapabilitiesRef.current) {
@@ -953,23 +1094,23 @@ export const BoreholeProvider = ({ children }) => {
     const currentPool = objectPool.current;
     const currentThrottledMouseMove = throttledMouseMove.current;
     const currentTempPlane = tempPlaneRef.current;
-    
+
     return () => {
       if (visualizerRef.current) {
         visualizerRef.current.dispose();
       }
-      
+
       // Clean up object pool
       if (currentPool) {
         currentPool.vectors.length = 0;
         currentPool.matrices.length = 0;
       }
-      
+
       // Cancel any pending animation frames
       if (currentThrottledMouseMove) {
         cancelAnimationFrame(currentThrottledMouseMove);
       }
-      
+
       // Clean up temporary plane
       if (currentTempPlane) {
         currentTempPlane.geometry.dispose();
@@ -981,11 +1122,11 @@ export const BoreholeProvider = ({ children }) => {
 
   // Throttled mouse move handler for better performance
   const throttledMouseMove = useRef(null);
-  
+
   // Clear all strata hover effects - defined before handleCanvasMouseMove
   const clearStrataHoverEffects = useCallback(() => {
     if (!scene || !sceneManager) return;
-    
+
     // Performance optimization: Only check borehole strata objects instead of entire scene
     boreholes.forEach(borehole => {
       const strataGroup = sceneManager.get(`borehole_strata_${borehole.id}`);
@@ -999,26 +1140,26 @@ export const BoreholeProvider = ({ children }) => {
       }
     });
   }, [scene, sceneManager, boreholes]);
-  
+
   // Handle mouse move for hover effects with performance optimization
   const handleCanvasMouseMove = useCallback((event, canvasElement) => {
     if (!camera || !scene || !renderer || !canvasElement) return;
-    
+
     // Performance optimization: Throttle mouse move events to 60fps
     if (throttledMouseMove.current) {
       cancelAnimationFrame(throttledMouseMove.current);
     }
-    
+
     throttledMouseMove.current = requestAnimationFrame(() => {
       // Use requestIdleCallback for non-critical raycasting
       const performHoverRaycast = () => {
         const mouse = calculateNormalizedCoordinates(event, canvasElement);
         raycasterRef.current.setFromCamera(mouse, camera);
-        
+
         // Performance optimization: Only raycast against strata objects, not entire scene
         const originalLayers = raycasterRef.current.layers.mask;
         raycasterRef.current.layers.set(2); // Set to layer 2 for strata hover
-        
+
         // Collect only borehole strata objects for raycasting (much faster than scene.children)
         const strataTargets = [];
         boreholes.forEach(borehole => {
@@ -1027,15 +1168,15 @@ export const BoreholeProvider = ({ children }) => {
             strataTargets.push(strataGroup);
           }
         });
-        
+
         // Only raycast if we have strata targets (empty check prevents unnecessary work)
-        const intersects = strataTargets.length > 0 
+        const intersects = strataTargets.length > 0
           ? raycasterRef.current.intersectObjects(strataTargets, true)
           : [];
-        
+
         // Restore original layers
         raycasterRef.current.layers.mask = originalLayers;
-        
+
         // Check for strata layer hover
         let foundStrataLayer = false;
         for (const intersect of intersects) {
@@ -1043,7 +1184,7 @@ export const BoreholeProvider = ({ children }) => {
             const layerData = intersect.object.userData;
             setHoveredStrataLayer(layerData);
             foundStrataLayer = true;
-            
+
             // Apply hover effect
             if (intersect.object.material) {
               intersect.object.material.emissive = new Color(0x444444);
@@ -1052,14 +1193,14 @@ export const BoreholeProvider = ({ children }) => {
             break;
           }
         }
-        
+
         if (!foundStrataLayer && hoveredStrataLayer) {
           // Remove hover effect from previous layer
           clearStrataHoverEffects();
           setHoveredStrataLayer(null);
         }
       };
-      
+
       // Use requestIdleCallback for non-critical hover operations
       if (window.requestIdleCallback) {
         window.requestIdleCallback(() => {
@@ -1100,7 +1241,7 @@ export const BoreholeProvider = ({ children }) => {
     setIsPlacingBorehole
   }), [
     addBorehole,
-    updateBorehole, 
+    updateBorehole,
     deleteBorehole,
     selectBorehole,
     hoverBorehole,

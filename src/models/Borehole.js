@@ -26,7 +26,7 @@ export class Borehole {
     this.z = data.z || 0;
     this.depth = data.depth || 32.8;
     this.totalDepth = data.totalDepth || data.depth || 32.8;
-    this.surfaceElevation = data.surfaceElevation || this.y || 0; // NEW: Surface elevation for 3D modeling
+    this.surfaceElevation = data.surfaceElevation || this.y || 0;
     this.layers = this._initializeLayers(data.layers || [], this.surfaceElevation);
     this.type = data.type || 'OTHER';
     this.color = data.color || BOREHOLE_TYPES[this.type]?.color || BOREHOLE_TYPES.OTHER.color;
@@ -68,7 +68,6 @@ export class Borehole {
     return null;
   }
 
-  // NEW: Get absolute elevations for interpolation
   getAbsoluteLayerElevations() {
     return this.layers.map(layer => ({
       ...layer,
@@ -78,43 +77,52 @@ export class Borehole {
     }));
   }
 
-  // NEW: Extract points for specific material for interpolation
   getLayerPointsForMaterial(material) {
     const matchingLayers = this.layers.filter(l => l.material === material);
+
+    // Get surface elevation - this is critical for proper interpolation
+    const surfaceElev = this.surfaceElevation || this.y || 0;
+
     return matchingLayers.map(layer => ({
       x: this.x,        // East-West coordinate
       y: this.y,        // Surface Y coordinate (height)
       z: this.z,        // North-South coordinate
-      // FIXED: Align with strata cylinder positioning (negative Y = below surface)
-      topZ: -layer.from, // Negative depth from surface (feet)
-      bottomZ: -layer.to, // Negative depth from surface (feet)
+      // FIXED: Use ABSOLUTE elevations for proper interpolation
+      topZ: surfaceElev - layer.from,    // Absolute elevation of layer top
+      bottomZ: surfaceElev - layer.to,   // Absolute elevation of layer bottom
       thickness: layer.to - layer.from,
       material: layer.material,
-      surfaceElevation: this.surfaceElevation || this.y || 0
+      surfaceElevation: surfaceElev
     }));
   }
 
-  // New method to get layers by material+color combination
   getLayerPointsForMaterialAndColor(material, color) {
     const matchingLayers = this.layers.filter(l => {
       const layerColor = l.customColor || l.color || 'default';
       const matches = l.material === material && layerColor === color;
-      if (matches) {
-
-      }
       return matches;
     });
-    return matchingLayers.map(layer => ({
-      x: this.x,        // East-West coordinate
-      y: this.y,        // Surface Y coordinate (height)
-      z: this.z,        // North-South coordinate
-      topZ: -layer.from, // Negative depth from surface
-      bottomZ: -layer.to, // Negative depth from surface
-      thickness: layer.to - layer.from,
-      material: layer.material,
-      color: layer.customColor || layer.color || 'default',
-      surfaceElevation: this.surfaceElevation || this.y || 0
-    }));
+
+    // Get surface elevation - this is critical for proper interpolation
+    const surfaceElev = this.surfaceElevation || this.y || 0;
+
+    return matchingLayers.map(layer => {
+      // Use ABSOLUTE elevations for interpolation to create dipping surfaces
+      const absoluteTopZ = surfaceElev - layer.from;
+      const absoluteBottomZ = surfaceElev - layer.to;
+
+      return {
+        x: this.x,        // East-West coordinate
+        y: this.y,        // Surface Y coordinate (height)
+        z: this.z,        // North-South coordinate
+        topZ: absoluteTopZ,   // ABSOLUTE elevation of layer top
+        bottomZ: absoluteBottomZ, // ABSOLUTE elevation of layer bottom
+        thickness: layer.to - layer.from,
+        material: layer.material,
+        color: layer.customColor || layer.color || 'default',
+        surfaceElevation: surfaceElev
+      };
+    });
   }
 
   _initializeLayers(layers, surfaceElevation) {

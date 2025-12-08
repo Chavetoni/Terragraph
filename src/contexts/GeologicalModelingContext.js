@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { geologicalLogger } from '../utils/Logger.js';
 
 const GeologicalModelingContext = createContext();
@@ -21,6 +21,31 @@ export const INTERPOLATION_METHODS = {
   KRIGING: 'kriging'
 };
 
+// Interpolation style modes: controls how aggressively the system
+// constrains surfaces (slopes, smoothing, thickness)
+export const INTERPOLATION_STYLE_MODES = {
+  NATURAL: 'natural',       // Realistic dips, less smoothing
+  CONSERVATIVE: 'conservative'  // Flatter surfaces, more smoothing
+};
+
+// Parameter presets for each interpolation style mode
+export const INTERPOLATION_STYLE_PRESETS = {
+  [INTERPOLATION_STYLE_MODES.NATURAL]: {
+    maxSlope: 45,              // degrees (allows steeper natural dips)
+    minThickness: 0.05,        // feet (allows thinner layers)
+    applyLateralContinuity: false, // no averaging of adjacent points
+    smoothingRadius: 0,        // no smoothing
+    confidenceWeighting: true  // always on - weights by confidence
+  },
+  [INTERPOLATION_STYLE_MODES.CONSERVATIVE]: {
+    maxSlope: 30,              // degrees (limits steep slopes)
+    minThickness: 0.1,         // feet (enforces minimum thickness)
+    applyLateralContinuity: true, // averages adjacent points for smoothness
+    smoothingRadius: 1,        // applies smoothing
+    confidenceWeighting: true  // always on
+  }
+};
+
 export const GRID_RESOLUTIONS = {
   AUTO: 'auto',
   COARSE: 'coarse',
@@ -29,9 +54,10 @@ export const GRID_RESOLUTIONS = {
   ULTRA_FINE: 'ultra_fine'
 };
 
-const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS = Object.freeze({
   interpolationMethod: INTERPOLATION_METHODS.IDW,
   gridResolution: GRID_RESOLUTIONS.AUTO,
+  defaultGridResolution: 15,  // Numeric default when AUTO is selected (balanced quality/performance)
   validateData: true,
   autoFixErrors: false,
   showValidationWarnings: true,
@@ -61,8 +87,30 @@ const DEFAULT_SETTINGS = {
   combinedPockets: true,
   pocketRadius: 0.8,
   pocketOpacity: 0.8,
-  pocketDepthRatio: 0.3
-};
+  pocketDepthRatio: 0.3,
+
+  // ===== NEW: Performance Optimizations (Phase 2) =====
+  useKDTreeInterpolation: true,      // Use KD-tree for fast nearest neighbor search (10-100x speedup)
+  maxNeighbors: 12,                   // Maximum neighbors for interpolation (prevents distant contamination)
+  adaptiveConfidenceDistance: true,   // Calculate confidence distance based on borehole spacing
+  searchRadiusEnabled: true,          // Enable search radius limiting
+
+  // ===== NEW: Accuracy Improvements (Phase 3) =====
+  enableCrossValidation: false,       // Enable LOOCV accuracy validation (adds ~10-20% processing time)
+  showValidationStats: true,          // Display validation statistics in UI
+  enableAnisotropyDetection: false,   // Auto-detect directional geology (experimental)
+  anisotropyMinRatio: 1.5,            // Minimum ratio to consider anisotropic (1.5 = 50% difference)
+  anisotropyMinConfidence: 0.6,       // Minimum confidence for anisotropy detection (0-1)
+
+  // ===== NEW: Horizon-Based Interpolation (Phase 4) =====
+  useAnisotropicDistance: true,       // Use 3D ellipsoidal distance (prioritizes horizontal neighbors)
+  anisotropyLx: 1.0,                  // East-West scale factor (horizontal baseline)
+  anisotropyLy: 1.0,                  // North-South scale factor (horizontal baseline)
+  anisotropyLz: 0.1,                  // Vertical scale factor (10:1 ratio - Z is 10x more expensive)
+  useHorizonPreprocessing: true,      // Enable pinch-out handling with zero-thickness markers
+  horizonNeighborSearchRadius: 100,   // Search radius for pinch-out depth estimation (feet)
+  horizonMinNeighbors: 2              // Minimum neighbors required for IDW fallback estimation
+});
 
 export const GeologicalModelingProvider = ({ children }) => {
   const [modelingMode, setModelingMode] = useState(MODELING_MODES.CONCEPTUAL);
@@ -80,28 +128,56 @@ export const GeologicalModelingProvider = ({ children }) => {
   const [prototypeResult, setPrototypeResult] = useState(null);
   const [prototypeError, setPrototypeError] = useState(null);
 
-  const updateCapabilities = useCallback((boreholes = []) => {
+  // Interpolation style mode: 'natural' (default) allows realistic dips,
+  // 'conservative' produces flatter surfaces with more smoothing
+  const [interpolationStyleMode, setInterpolationStyleMode] = useState(INTERPOLATION_STYLE_MODES.NATURAL);
+
+  // Advanced interpolation mode: enables horizon preprocessing and anisotropic distance
+  // DEFAULT: false - these features can cause flat surfaces with small datasets
+  // Recommended for: large datasets (10+ boreholes) with complex geology
+  const [useAdvancedInterpolation, setUseAdvancedInterpolation] = useState(false);
+
+  // Computed settings based on current interpolation style mode
+  const interpolationStyleSettings = useMemo(() => {
+    return INTERPOLATION_STYLE_PRESETS[interpolationStyleMode] || INTERPOLATION_STYLE_PRESETS.natural;
+  }, [interpolationStyleMode]);
+
+  const processingTimeoutRef = useRef(null);
+  const lastValidationRef = useRef(null);
+
+  const checkCapabilities = useCallback((boreholes = []) => {
     const boreholeCount = boreholes.length;
     const hasLayerData = boreholes.some(bh => bh.layers && bh.layers.length > 0);
-    const hasSpatialData = boreholes.some(bh => 
+    const hasSpatialData = boreholes.some(bh =>
       typeof bh.x === 'number' && typeof bh.y === 'number'
     );
-    
-    const canUseDataDriven = boreholeCount >= modelingSettings.minimumBoreholes && 
-                            hasLayerData && 
-                            hasSpatialData;
 
-    setCapabilities({
-      canUseDataDriven,
+    return {
+      canUseDataDriven: boreholeCount >= modelingSettings.minimumBoreholes &&
+        hasLayerData && hasSpatialData,
       boreholeCount,
       hasLayerData,
       hasSpatialData
+    };
+  }, [modelingSettings.minimumBoreholes]);
+
+  const updateCapabilities = useCallback((boreholes = []) => {
+    const newCapabilities = checkCapabilities(boreholes);
+
+    setCapabilities(prev => {
+      if (prev.canUseDataDriven === newCapabilities.canUseDataDriven &&
+        prev.boreholeCount === newCapabilities.boreholeCount &&
+        prev.hasLayerData === newCapabilities.hasLayerData &&
+        prev.hasSpatialData === newCapabilities.hasSpatialData) {
+        return prev;
+      }
+      return newCapabilities;
     });
 
-    if (modelingMode === MODELING_MODES.DATA_DRIVEN && !canUseDataDriven) {
+    if (modelingMode === MODELING_MODES.DATA_DRIVEN && !newCapabilities.canUseDataDriven) {
       setModelingMode(MODELING_MODES.CONCEPTUAL);
     }
-  }, [modelingMode, modelingSettings.minimumBoreholes]);
+  }, [modelingMode, checkCapabilities]);
 
   const switchMode = useCallback((newMode) => {
     if (newMode === MODELING_MODES.DATA_DRIVEN && !capabilities.canUseDataDriven) {
@@ -115,10 +191,10 @@ export const GeologicalModelingProvider = ({ children }) => {
       if (!capabilities.hasSpatialData) {
         missingRequirements.push('Boreholes must have spatial coordinates');
       }
-      
+
       throw new Error(`Cannot switch to data-driven mode: ${missingRequirements.join(', ')}`);
     }
-    
+
     setModelingMode(newMode);
   }, [capabilities, modelingSettings.minimumBoreholes]);
 
@@ -138,12 +214,12 @@ export const GeologicalModelingProvider = ({ children }) => {
       if (!capabilities.canUseDataDriven) {
         errors.push('Insufficient data for data-driven modeling');
       }
-      
-      if (modelingSettings.gridResolution === GRID_RESOLUTIONS.ULTRA_FINE && 
-          capabilities.boreholeCount < 10) {
+
+      if (modelingSettings.gridResolution === GRID_RESOLUTIONS.ULTRA_FINE &&
+        capabilities.boreholeCount < 10) {
         warnings.push('Ultra-fine grid resolution with few boreholes may produce unreliable results');
       }
-      
+
       if (modelingSettings.maxInterpolationDistance < 33) {
         warnings.push('Very small interpolation distance may result in sparse coverage');
       }
@@ -160,8 +236,32 @@ export const GeologicalModelingProvider = ({ children }) => {
     };
 
     setValidationResults(result);
+    lastValidationRef.current = result;
     return result;
   }, [modelingMode, capabilities, modelingSettings]);
+
+  const startProcessing = useCallback((status = 'Processing...') => {
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+
+    setIsProcessing(true);
+    setProcessingStatus(status);
+
+    processingTimeoutRef.current = setTimeout(() => {
+      setIsProcessing(false);
+      setProcessingStatus(null);
+    }, 30000);
+  }, []);
+
+  const stopProcessing = useCallback(() => {
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+    setIsProcessing(false);
+    setProcessingStatus(null);
+  }, []);
 
   const processModel = useCallback(async (boreholes = [], options = {}) => {
     setIsProcessing(true);
@@ -224,15 +324,15 @@ export const GeologicalModelingProvider = ({ children }) => {
     if (!config || typeof config !== 'object') {
       throw new Error('Invalid configuration data');
     }
-    
+
     if (config.mode && Object.values(MODELING_MODES).includes(config.mode)) {
       setModelingMode(config.mode);
     }
-    
+
     if (config.settings) {
       setModelingSettings(prev => ({ ...prev, ...config.settings }));
     }
-    
+
     return true;
   }, []);
 
@@ -246,7 +346,7 @@ export const GeologicalModelingProvider = ({ children }) => {
           capabilities: ['Manual layer correlation', 'Interpretive modeling'],
           limitations: ['No automatic interpolation', 'Subjective interpretation']
         };
-      
+
       case MODELING_MODES.DATA_DRIVEN:
         return {
           name: 'Data-Driven Modeling',
@@ -264,7 +364,7 @@ export const GeologicalModelingProvider = ({ children }) => {
           ],
           limitations: ['Requires sufficient data density', 'May not capture geological complexity']
         };
-      
+
       default:
         return null;
     }
@@ -288,7 +388,12 @@ export const GeologicalModelingProvider = ({ children }) => {
     validationResults,
     capabilities,
     prototypeResult,
-    prototypeError
+    prototypeError,
+    // Interpolation style (natural vs conservative)
+    interpolationStyleMode,
+    interpolationStyleSettings,
+    // Advanced interpolation mode (horizon preprocessing + anisotropic distance)
+    useAdvancedInterpolation
   }), [
     modelingMode,
     isProcessing,
@@ -297,7 +402,10 @@ export const GeologicalModelingProvider = ({ children }) => {
     validationResults,
     capabilities,
     prototypeResult,
-    prototypeError
+    prototypeError,
+    interpolationStyleMode,
+    interpolationStyleSettings,
+    useAdvancedInterpolation
   ]);
 
   const contextActions = useMemo(() => ({
@@ -311,7 +419,14 @@ export const GeologicalModelingProvider = ({ children }) => {
     importConfiguration,
     setPrototypeState,
     clearPrototypeState,
-    getModeInfo
+    getModeInfo,
+    startProcessing,
+    stopProcessing,
+    checkCapabilities,
+    // Interpolation style mode toggle
+    setInterpolationStyleMode,
+    // Advanced interpolation toggle
+    setUseAdvancedInterpolation
   }), [
     switchMode,
     updateSettings,
@@ -323,12 +438,19 @@ export const GeologicalModelingProvider = ({ children }) => {
     importConfiguration,
     setPrototypeState,
     clearPrototypeState,
-    getModeInfo
+    getModeInfo,
+    startProcessing,
+    stopProcessing,
+    checkCapabilities,
+    setInterpolationStyleMode,
+    setUseAdvancedInterpolation
   ]);
 
   const contextConstants = useMemo(() => ({
     MODELING_MODES,
     INTERPOLATION_METHODS,
+    INTERPOLATION_STYLE_MODES,
+    INTERPOLATION_STYLE_PRESETS,
     GRID_RESOLUTIONS
   }), []);
 

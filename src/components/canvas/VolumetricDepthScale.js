@@ -3,9 +3,9 @@
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useContext } from 'react';
 import { ThreeJsContext } from '../../contexts/ThreeJsContext';
-import { useGeologicalModeling } from '../../contexts/OptimizedGeologicalModelingContext';
+import { useGeologicalModeling } from '../../contexts/GeologicalModelingContext';
 import { useDisplayOptions } from '../../contexts/DisplayOptionsContext';
-import { useBoreholeData } from '../../hooks/useOptimizedBorehole';
+import { useBoreholes } from '../../contexts/BoreholeContext';
 import { createGlassmorphismLabel } from '../../utils/threeJsHelpers';
 import { generateDepthPositions } from '../../utils/depthScaleCalculator';
 import { Box3, BufferGeometry, Group, Line, LineBasicMaterial, Vector3 } from 'three';
@@ -20,8 +20,8 @@ export function VolumetricDepthScale() {
   const { scene, sceneManager, isInitialized } = useContext(ThreeJsContext);
   const { prototypeResult } = useGeologicalModeling();
   const { showDepthMarkers } = useDisplayOptions();
-  const { boreholes } = useBoreholeData();
-  
+  const { boreholes } = useBoreholes();
+
   const depthLabelsRef = useRef([]);
   const depthGroupRef = useRef(null);
 
@@ -45,7 +45,7 @@ export function VolumetricDepthScale() {
     if (!boreholes?.length) {
       return { minDepth: 0, maxDepth: 0, totalDepth: 0, surfaceLevel: 0, bottomLevel: 0 };
     }
-    
+
     const maxBoreholeDepth = Math.max(
       ...boreholes.map(borehole => {
         // Priority order: totalDepth > depth > calculated from layers
@@ -58,7 +58,7 @@ export function VolumetricDepthScale() {
       }),
       10 // Minimum depth fallback
     );
-    
+
     return {
       minDepth: 0,
       maxDepth: maxBoreholeDepth,
@@ -77,7 +77,7 @@ export function VolumetricDepthScale() {
    */
   const calculateModelBounds = useCallback((volumes, fallbackBoreholes = null) => {
     const modelBounds = new Box3();
-    
+
     // Priority 1: Use volume meshes (exclude isolated pockets)
     const hasVolumeBounds = volumes?.some(volume => {
       if (volume.mesh && volume.type !== 'pocket') {
@@ -87,7 +87,7 @@ export function VolumetricDepthScale() {
       }
       return false;
     });
-    
+
     // Priority 2: Fallback to borehole positions
     if (!hasVolumeBounds && fallbackBoreholes?.length) {
       fallbackBoreholes.forEach(borehole => {
@@ -99,7 +99,7 @@ export function VolumetricDepthScale() {
       });
       modelBounds.expandByScalar(2); // Add margin for scale positioning
     }
-    
+
     return modelBounds;
   }, []);
 
@@ -159,21 +159,21 @@ export function VolumetricDepthScale() {
   const calculateDynamicScaleSettings = useCallback((modelBounds) => {
     const size = new Vector3();
     modelBounds.getSize(size);
-    
+
     const STANDARD_SITE_SIZE = 164; // Standard geological site reference size (feet)
     const modelDiameter = Math.max(size.x, size.z);
     const scaleRatio = modelDiameter / STANDARD_SITE_SIZE;
-    
+
     // Dynamic scale calculation based on model dimensions
-    
+
     // Calculate positioning offset based on model size
     const offsetMultiplier = calculateOffsetMultiplier(scaleRatio, modelDiameter);
     const scaleDistance = modelDiameter * offsetMultiplier;
     const scaleXPosition = modelBounds.min.x - scaleDistance;
-    
+
     // Calculate scale-appropriate tick and label dimensions
     const { tickLength, labelOffset } = calculateScaleElementSizes(scaleRatio, modelDiameter);
-    
+
     return {
       scaleXPosition,
       tickLength,
@@ -204,7 +204,7 @@ export function VolumetricDepthScale() {
       scene.remove(depthGroupRef.current);
       depthGroupRef.current = null;
     }
-    
+
     if (sceneManager && depthLabelsRef.current.length > 0) {
       depthLabelsRef.current.forEach((labelId) => {
         sceneManager.removeCSS3D(labelId);
@@ -240,16 +240,16 @@ export function VolumetricDepthScale() {
    */
   const createDepthLabel = useCallback((position, scaleXPosition, tickLength, labelOffset, index) => {
     const glassLabel = createGlassmorphismLabel(position.label, '#ffffff', 'depth');
-    
+
     glassLabel.position.set(
       scaleXPosition - tickLength - labelOffset,
       position.yPosition,
       0
     );
-    
+
     const labelId = `volumetric-depth-${index}`;
     sceneManager.addCSS3D(labelId, glassLabel);
-    
+
     return labelId;
   }, [sceneManager]);
 
@@ -293,39 +293,39 @@ export function VolumetricDepthScale() {
 
     // Generate depth positions
     const depthPositions = generateDepthPositions(depthRange);
-    
+
     // Create main vertical line
-    const mainLineMaterial = new LineBasicMaterial({ 
+    const mainLineMaterial = new LineBasicMaterial({
       color: 0xffffff,
       opacity: 0.8,
       transparent: true
     });
-    
+
     const mainLineGeometry = new BufferGeometry().setFromPoints([
       new Vector3(scaleXPosition, depthRange.surfaceLevel, 0),
       new Vector3(scaleXPosition, depthRange.bottomLevel, 0)
     ]);
-    
+
     const mainLine = new Line(mainLineGeometry, mainLineMaterial);
     depthGroup.add(mainLine);
-    
+
     // Create tick marks and labels for each depth position
-    const tickMaterial = new LineBasicMaterial({ 
+    const tickMaterial = new LineBasicMaterial({
       color: 0xffffff,
       opacity: 0.6,
       transparent: true
     });
-    
+
     depthPositions.forEach((position, index) => {
       // Create and add tick mark
       const tick = createTickMark(position, scaleXPosition, tickLength, tickMaterial);
       depthGroup.add(tick);
-      
+
       // Create and register CSS3D depth label
       const labelId = createDepthLabel(position, scaleXPosition, tickLength, labelOffset, index);
       depthLabelsRef.current.push(labelId);
     });
-    
+
     // Add depth scale group to scene
     scene.add(depthGroup);
     depthGroupRef.current = depthGroup;
@@ -357,14 +357,14 @@ export function VolumetricDepthScale() {
     return () => {
       if (depthGroupRef.current) {
         scene?.remove(depthGroupRef.current);
-        
+
         // Clear CSS3D depth labels
         if (sceneManager) {
           depthLabelsRef.current.forEach((labelId) => {
             sceneManager.removeCSS3D(labelId);
           });
         }
-        
+
         depthGroupRef.current = null;
         depthLabelsRef.current = [];
       }

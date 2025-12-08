@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useRef, useCallback, useContext } from 'react';
-import { ACESFilmicToneMapping, AmbientLight, Color, DirectionalLight, GridHelper, PCFSoftShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
+import { ACESFilmicToneMapping, AmbientLight, Box3, Color, DirectionalLight, GridHelper, PCFSoftShadowMap, PerspectiveCamera, SRGBColorSpace, Scene, Vector3, WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { CSS3DRenderer } from 'three/examples/jsm/renderers/CSS3DRenderer';
 import SimpleSceneManager from '../services/SimpleSceneManager';
@@ -8,10 +8,47 @@ import { scene3dLogger } from '../utils/Logger.js';
 
 export const ThreeJsContext = createContext();
 
+/**
+ * Sort geological meshes by distance from camera (back-to-front)
+ * This ensures proper alpha blending for transparent layers
+ *
+ * @param {THREE.Object3D[]} meshes - Array of mesh objects to sort
+ * @param {THREE.Camera} camera - The camera to calculate distance from
+ */
+function sortMeshesByDepth(meshes, camera) {
+  if (!meshes || meshes.length === 0 || !camera) return;
+
+  const cameraPosition = new Vector3();
+  camera.getWorldPosition(cameraPosition);
+
+  // Calculate centroid distance for each mesh
+  const meshDistances = meshes.map(mesh => {
+    try {
+      const boundingBox = new Box3().setFromObject(mesh);
+      const center = boundingBox.getCenter(new Vector3());
+      const distance = cameraPosition.distanceTo(center);
+      return { mesh, distance };
+    } catch {
+      return { mesh, distance: 0 };
+    }
+  });
+
+  // Sort by distance (farthest first = renders first = back-to-front)
+  meshDistances.sort((a, b) => b.distance - a.distance);
+
+  // Assign render order based on sorted position
+  meshDistances.forEach((item, index) => {
+    item.mesh.renderOrder = index;
+  });
+}
+
 export const ThreeJsProvider = ({ children }) => {
   const mountRef = useRef(null);
   const animationFrameRef = useRef(null);
   const gridHelperRef = useRef(null);
+  const keyboardHandlersRef = useRef(null); // Store keyboard handlers for cleanup
+  const lastCameraPositionRef = useRef(new Vector3()); // Track camera movement for throttled sorting
+  const sortThrottleRef = useRef(0); // Frame counter for throttling
   const [threeJs, setThreeJs] = useState({
     scene: null,
     camera: null,
@@ -89,16 +126,82 @@ export const ThreeJsProvider = ({ children }) => {
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.screenSpacePanning = false;
+    controls.screenSpacePanning = true; // Enable screen-space panning for vertical movement
     controls.minDistance = 5;
     controls.maxDistance = 500;
     controls.maxPolarAngle = Math.PI / 2;
+
+    // Vertical movement speed for keyboard controls
+    const verticalMoveSpeed = 5;
 
     controls.enableRotate = true;
     controls.enableZoom = true;
     controls.enablePan = true;
     controls.autoRotate = false;
     controls.autoRotateSpeed = 0;
+
+    // Keyboard controls for vertical movement (Q = down, E = up)
+    const handleKeyDown = (event) => {
+      // Skip if user is typing in an input field
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if (key === 'q' || key === 'e') {
+        event.preventDefault();
+        const direction = key === 'e' ? 1 : -1; // E = up, Q = down
+        const moveAmount = verticalMoveSpeed * direction;
+
+        // Move camera position
+        camera.position.y += moveAmount;
+
+        // Move the controls target (orbit center) to maintain relative position
+        controls.target.y += moveAmount;
+
+        // Trigger update
+        controls.update();
+      }
+
+      // Page Up / Page Down for larger vertical movements
+      if (event.key === 'PageUp' || event.key === 'PageDown') {
+        event.preventDefault();
+        const direction = event.key === 'PageUp' ? 1 : -1;
+        const moveAmount = verticalMoveSpeed * 3 * direction; // 3x faster for Page keys
+
+        camera.position.y += moveAmount;
+        controls.target.y += moveAmount;
+        controls.update();
+      }
+    };
+
+    // Shift + Scroll for vertical movement
+    const handleWheel = (event) => {
+      if (event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Scroll direction: up = negative deltaY = move camera up
+        const direction = event.deltaY > 0 ? -1 : 1;
+        const moveAmount = verticalMoveSpeed * direction;
+
+        camera.position.y += moveAmount;
+        controls.target.y += moveAmount;
+        controls.update();
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('keydown', handleKeyDown);
+    renderer.domElement.addEventListener('wheel', handleWheel, { passive: false });
+
+    // Store handlers for cleanup
+    keyboardHandlersRef.current = {
+      handleKeyDown,
+      handleWheel,
+      rendererElement: renderer.domElement
+    };
 
     controls.addEventListener('change', () => {
       if (renderer && scene && camera) {
@@ -207,12 +310,41 @@ export const ThreeJsProvider = ({ children }) => {
     }
 
     animationFrameRef.current = requestAnimationFrame(animate);
-    
+
     if (threeJs.controls) {
       threeJs.controls.update();
     }
 
     updateGlassmorphismLabels();
+
+    // Manual render order sorting for transparent geological meshes
+    // Throttled: only sort every 5 frames OR when camera moves significantly
+    sortThrottleRef.current++;
+    const shouldSort = sortThrottleRef.current >= 5;
+
+    if (shouldSort) {
+      sortThrottleRef.current = 0;
+
+      // Check if camera has moved enough to warrant re-sorting
+      const currentCameraPos = threeJs.camera.position;
+      const distanceMoved = lastCameraPositionRef.current.distanceTo(currentCameraPos);
+
+      if (distanceMoved > 0.5) { // Only re-sort if moved > 0.5 units
+        lastCameraPositionRef.current.copy(currentCameraPos);
+
+        // Find the VolumetricGeologicalModel group and sort its children
+        const geologicalModel = threeJs.scene.getObjectByName('VolumetricGeologicalModel');
+        if (geologicalModel && geologicalModel.children && geologicalModel.children.length > 0) {
+          // Filter to only meshes with materials (actual geological layers)
+          const transparentMeshes = geologicalModel.children.filter(
+            child => child.isMesh && child.material && child.material.transparent
+          );
+          if (transparentMeshes.length > 0) {
+            sortMeshesByDepth(transparentMeshes, threeJs.camera);
+          }
+        }
+      }
+    }
 
     try {
       threeJs.renderer.render(threeJs.scene, threeJs.camera);
@@ -296,18 +428,30 @@ export const ThreeJsProvider = ({ children }) => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      
+
+      // Clean up keyboard and wheel event handlers
+      if (keyboardHandlersRef.current) {
+        window.removeEventListener('keydown', keyboardHandlersRef.current.handleKeyDown);
+        if (keyboardHandlersRef.current.rendererElement) {
+          keyboardHandlersRef.current.rendererElement.removeEventListener(
+            'wheel',
+            keyboardHandlersRef.current.handleWheel
+          );
+        }
+        keyboardHandlersRef.current = null;
+      }
+
       if (threeJs.controls) {
         threeJs.controls.dispose();
       }
-      
+
       if (threeJs.renderer) {
         threeJs.renderer.dispose();
         if (mountRef.current && mountRef.current.contains(threeJs.renderer.domElement)) {
           mountRef.current.removeChild(threeJs.renderer.domElement);
         }
       }
-      
+
       if (threeJs.css3DRenderer) {
         if (mountRef.current && mountRef.current.contains(threeJs.css3DRenderer.domElement)) {
           mountRef.current.removeChild(threeJs.css3DRenderer.domElement);
